@@ -23,3 +23,21 @@
 /public/assets/
 /assets/vendor/
 ###< symfony/asset-mapper ###
+
+###> lexik/jwt-authentication-bundle ###
+/config/jwt/*.pem
+###< lexik/jwt-authentication-bundle ###
+
+# Symfony
+/vendor/
+/var/
+/.env
+/.idea/
+/nbproject/
+/.vscode/
+
+# Node / Vue
+/node_modules/
+/dist/
+/npm-debug.log*
+yarn-error.log*
