@@ -46,6 +46,7 @@ export const useAuthStore = defineStore('auth', {
           refresh_token: this.refreshToken,
         })
         this.accessToken = data.token
+        this.refreshToken = data.refresh_token
         localStorage.setItem('access_token', this.accessToken)
         return true
       } catch {

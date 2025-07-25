@@ -1,11 +1,13 @@
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
 
+const baseURL = import.meta.env.VITE_API_URL || 'https://localhost:8000'
+
 const instance = axios.create({
-  baseURL: 'http://api.anime-sanctuary.net', // ou l’URL de ton backend
+  baseURL,
 })
 
-// Ajoute le token JWT
+// Interceptor pour ajouter le token JWT
 instance.interceptors.request.use((config) => {
   const auth = useAuthStore()
   if (auth.accessToken) {
@@ -14,12 +16,11 @@ instance.interceptors.request.use((config) => {
   return config
 })
 
-// Rafraîchir le token si 401
+// Interceptor pour rafraîchir le token si 401
 instance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const auth = useAuthStore()
-
     if (error.response?.status === 401 && !error.config._retry && auth.refreshToken) {
       error.config._retry = true
       const refreshed = await auth.refreshTokenIfNeeded()
@@ -29,7 +30,6 @@ instance.interceptors.response.use(
         return instance(error.config)
       }
     }
-
     return Promise.reject(error)
   },
 )
