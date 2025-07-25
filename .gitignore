@@ -41,4 +41,6 @@
 /dist/
 /npm-debug.log*
 yarn-error.log*
-/cityavis-front/public/images/
+cityavis-front/public/images/
+cityavis-front/.env
+cityavis-front/.env.production
