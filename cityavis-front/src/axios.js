@@ -2,7 +2,7 @@ import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
 
 const instance = axios.create({
-  baseURL: 'https://localhost:8000', // ou l’URL de ton backend
+  baseURL: 'http://api.anime-sanctuary.net', // ou l’URL de ton backend
 })
 
 // Ajoute le token JWT
