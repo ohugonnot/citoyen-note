@@ -1,3 +1,4 @@
+
 import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig } from 'vite'
@@ -7,7 +8,7 @@ import { viteStaticCopy } from 'vite-plugin-static-copy'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '',
+  base: '/',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
@@ -25,6 +26,10 @@ export default defineConfig({
         {
           src: 'node_modules/leaflet/dist/images/*',
           dest: 'images/leaflet',
+        },
+        {
+          src: '.htaccess', // Ajouter cette ligne
+          dest: '.',
         },
       ],
     }),
