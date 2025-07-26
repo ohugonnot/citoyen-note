@@ -39,8 +39,8 @@
         <span v-else>Se connecter</span>
       </button>
 
-      <div v-if="error" class="alert alert-danger mt-3" role="alert" aria-live="assertive">
-        {{ error }}
+      <div v-if="auth.lastLoginError" class="alert alert-danger mt-3" role="alert" aria-live="assertive">
+        {{ auth.lastLoginError }}
       </div>
     </form>
   </div>
@@ -67,11 +67,7 @@ const handleLogin = async () => {
       password: password.value,
     })
   } catch (err) {
-    if (err.response?.data?.error) {
-      error.value = err.response.data.error
-    } else {
-      error.value = 'Erreur de connexion'
-    }
+    console.error('[handleLogin] Exception:', err)
   } finally {
     loading.value = false
   }

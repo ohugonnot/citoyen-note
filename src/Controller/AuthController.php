@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Enum\Statut;
+use App\Helper\UserJsonHelper;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -112,7 +113,7 @@ class AuthController extends AbstractController
             return $this->json([
                 'token' => $token,
                 'refresh_token' => $refreshToken->getRefreshToken(),
-                'user' => $this->buildUserJson($user)
+                'user' => UserJsonHelper::build($user)
             ]);
         } catch (\Exception $e) {
             $logger->error('JWT token generation failed', ['email' => $user->getEmail(), 'error' => $e->getMessage()]);
@@ -140,7 +141,6 @@ class AuthController extends AbstractController
 
         // On autorise uniquement certaines propriétés
         $allowedFields = ['nom', 'prenom', 'telephone', 'dateNaissance','pseudo'];
-
         foreach ($allowedFields as $field) {
             if (!array_key_exists($field, $data)) {
                 continue;
@@ -166,7 +166,7 @@ class AuthController extends AbstractController
         $em->persist($currentUser);
         $em->flush();
 
-        return $this->json($this->buildUserJson($currentUser));
+        return $this->json(UserJsonHelper::build($currentUser));
     }
 
 
@@ -177,29 +177,12 @@ class AuthController extends AbstractController
             return $this->json(['error' => 'Non authentifié'], 401);
         }
 
-        return $this->json($this->buildUserJson($user));
+        return $this->json(UserJsonHelper::build($user));
     }
 
     #[Route('/api/logout', name: 'api_logout', methods: ['POST','GET'])]
     public function logout(): JsonResponse
     {
         return $this->json(['message' => 'Déconnexion réussie']);
-    }
-
-    private function buildUserJson(User $user): array
-    {
-        return [
-            'id' => $user->getId(),
-            'email' => $user->getEmail(),
-            'pseudo' => $user->getPseudo(),
-            'nom' => $user->getNom(),
-            'prenom' => $user->getPrenom(),
-            'telephone' => $user->getTelephone(),
-            'dateNaissance' => $user->getDateNaissance(),
-            'statut' => $user->getStatut()?->value,
-            'roles' => $user->getRoles(),
-            'isVerified' => $user->isVerified(),
-            'scoreFiabilite' => $user->getScoreFiabilite(),
-        ];
     }
 }

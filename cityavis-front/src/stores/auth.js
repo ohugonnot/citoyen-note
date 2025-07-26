@@ -226,7 +226,20 @@ export const useAuthStore = defineStore('auth', {
 
     handleAuthError(message, error) {
       console.error(`[Auth] ${message}:`, error, error?.response?.data)
-      this.loginError = error?.response?.data?.message || error.message || message
+
+      const responseData = error?.response?.data
+
+      if (typeof responseData === 'string') {
+        this.loginError = responseData
+      } else if (typeof responseData?.error === 'string') {
+        this.loginError = responseData.error
+      } else if (typeof responseData?.message === 'string') {
+        this.loginError = responseData.message
+      } else if (error?.message) {
+        this.loginError = error.message
+      } else {
+        this.loginError = message
+      }
     },
 
     clearLoginError() {
