@@ -1,0 +1,7 @@
+# Afficher les erreurs PHP
+php_flag display_errors On
+php_value error_reporting 32767
+
+# Enregistrer les erreurs dans un fichier de log personnalisé
+php_flag log_errors On
+php_value error_log /var/www/cityavis-backend/var/log/php_error.log
