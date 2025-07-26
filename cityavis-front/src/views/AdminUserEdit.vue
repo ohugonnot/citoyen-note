@@ -1,131 +1,373 @@
 <template>
   <div class="container py-4">
-    <h2 class="mb-4">Modifier l’utilisateur #{{ form.id }}</h2>
-
-    <div v-if="loading" class="text-center py-5">
-      <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
+    <div class="d-flex align-items-center justify-content-between mb-4">
+      <h2 class="mb-0">Modifier l'utilisateur #{{ form.id }}</h2>
+      <Button
+        icon="pi pi-arrow-left"
+        label="Retour"
+        class="p-button-outlined"
+        @click="router.push('/admin/users')"
+      />
     </div>
 
-    <div v-else>
-      <form @submit.prevent="submitForm">
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <label>Email</label>
-            <input v-model="form.email" type="email" class="form-control" disabled />
-          </div>
-          <div class="col-md-6">
-            <label>Pseudo</label>
-            <input v-model="form.pseudo" type="text" class="form-control" />
-          </div>
+    <Card class="shadow">
+      <template #content>
+        <div v-if="loading" class="d-flex justify-content-center align-items-center py-5">
+          <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
         </div>
 
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <label>Nom</label>
-            <input v-model="form.nom" type="text" class="form-control" />
-          </div>
-          <div class="col-md-6">
-            <label>Prénom</label>
-            <input v-model="form.prenom" type="text" class="form-control" />
-          </div>
-        </div>
+        <form v-else @submit.prevent="submitForm">
+          <!-- Informations de base -->
+          <div class="field-group mb-4">
+            <h3 class="h5 fw-semibold mb-3 text-primary">
+              <i class="pi pi-user me-2"></i>
+              Informations de base
+            </h3>
 
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <label>Téléphone</label>
-            <input v-model="form.telephone" type="text" class="form-control" />
-          </div>
-          <div class="col-md-6">
-            <label>Date de naissance</label>
-            <DatePicker v-model="form.dateNaissance" class="w-100" dateFormat="yy-mm-dd" showIcon />
-          </div>
-        </div>
+            <div class="row">
+              <div class="col-12 col-md-6 mb-3">
+                <label for="email" class="form-label fw-medium">Email *</label>
+                <InputText
+                  id="email"
+                  v-model="form.email"
+                  type="email"
+                  disabled
+                  class="w-100"
+                />
+                <small class="form-text text-muted">L'email ne peut pas être modifié</small>
+              </div>
 
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <label>Statut</label>
-            <Select
-              v-model="form.statut"
-              :options="status"
-              optionLabel="label"
-              optionValue="value"
-              placeholder="Choisir"
-              class="w-100"
+              <div class="col-12 col-md-6 mb-3">
+                <label for="pseudo" class="form-label fw-medium">Pseudo *</label>
+                <InputText
+                  id="pseudo"
+                  v-model="form.pseudo"
+                  type="text"
+                  class="w-100"
+                  :class="{ 'p-invalid': errors.pseudo }"
+                />
+                <small v-if="errors.pseudo" class="text-danger">{{ errors.pseudo }}</small>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-12 col-md-6 mb-3">
+                <label for="nom" class="form-label fw-medium">Nom</label>
+                <InputText
+                  id="nom"
+                  v-model="form.nom"
+                  type="text"
+                  class="w-100"
+                />
+              </div>
+
+              <div class="col-12 col-md-6 mb-3">
+                <label for="prenom" class="form-label fw-medium">Prénom</label>
+                <InputText
+                  id="prenom"
+                  v-model="form.prenom"
+                  type="text"
+                  class="w-100"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Informations de contact -->
+          <div class="field-group mb-4">
+            <h3 class="h5 fw-semibold mb-3 text-primary">
+              <i class="pi pi-phone me-2"></i>
+              Contact & Naissance
+            </h3>
+
+            <div class="row">
+              <div class="col-12 col-md-6 mb-3">
+                <label for="telephone" class="form-label fw-medium">Téléphone</label>
+                <InputText
+                  id="telephone"
+                  v-model="form.telephone"
+                  type="tel"
+                  class="w-100"
+                  placeholder="+33 1 23 45 67 89"
+                />
+              </div>
+
+              <div class="col-12 col-md-6 mb-3">
+                <label for="dateNaissance" class="form-label fw-medium">Date de naissance</label>
+                <DatePicker
+                  id="dateNaissance"
+                  v-model="form.dateNaissance"
+                  dateFormat="dd/mm/yy"
+                  showIcon
+                  class="w-100"
+                  :maxDate="maxBirthDate"
+                  placeholder="Sélectionner une date"
+                  showButtonBar
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Administration -->
+          <div class="field-group mb-4">
+            <h3 class="h5 fw-semibold mb-3 text-primary">
+              <i class="pi pi-cog me-2"></i>
+              Administration
+            </h3>
+
+            <div class="row">
+              <div class="col-12 col-md-6 mb-3">
+                <label for="statut" class="form-label fw-medium">Statut *</label>
+                <Select
+                  id="statut"
+                  v-model="form.statut"
+                  :options="statusOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Choisir un statut"
+                  class="w-100"
+                  :class="{ 'p-invalid': errors.statut }"
+                >
+                  <template #option="{ option }">
+                    <div class="d-flex align-items-center">
+                      <Tag
+                        :value="option.label"
+                        :severity="getStatusSeverity(option.value)"
+                        class="me-2"
+                      />
+                      {{ option.label }}
+                    </div>
+                  </template>
+                  <template #value="{ value }">
+                    <div v-if="value" class="d-flex align-items-center">
+                      <Tag
+                        :value="getStatusLabel(value)"
+                        :severity="getStatusSeverity(value)"
+                        class="me-2"
+                      />
+                      {{ getStatusLabel(value) }}
+                    </div>
+                  </template>
+                </Select>
+                <small v-if="errors.statut" class="text-danger">{{ errors.statut }}</small>
+              </div>
+
+              <div class="col-12 col-md-6 mb-3">
+                <label for="roles" class="form-label fw-medium">Rôles *</label>
+                <MultiSelect
+                  id="roles"
+                  v-model="form.roles"
+                  :options="rolesDisponibles"
+                  optionLabel="label"
+                  optionValue="value"
+                  display="chip"
+                  placeholder="Choisir les rôles"
+                  class="w-100"
+                  :class="{ 'p-invalid': errors.roles }"
+                  :maxSelectedLabels="3"
+                />
+                <small v-if="errors.roles" class="text-danger">{{ errors.roles }}</small>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-12 col-md-6 mb-3">
+                <div class="d-flex align-items-center">
+                  <Checkbox
+                    id="verified"
+                    v-model="form.isVerified"
+                    binary
+                  />
+                  <label for="verified" class="form-label fw-medium ms-2 mb-0">Email vérifié</label>
+                </div>
+                <small class="form-text text-muted">
+                  Indique si l'adresse email a été vérifiée
+                </small>
+              </div>
+
+              <div class="col-12 col-md-6 mb-3">
+                <label for="scoreFiabilite" class="form-label fw-medium">Score de fiabilité</label>
+                <div class="input-group">
+                  <InputNumber
+                    id="scoreFiabilite"
+                    v-model="form.scoreFiabilite"
+                    :min="0"
+                    :max="100"
+                    suffix=" %"
+                    class="flex-grow-1"
+                  />
+                  <Button
+                    icon="pi pi-info-circle"
+                    class="p-button-outlined p-button-secondary"
+                    @click="showScoreInfo = true"
+                    type="button"
+                  />
+                </div>
+                <small class="form-text text-muted">
+                  Score entre 0 et 100%
+                </small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="d-flex flex-wrap gap-2 justify-content-end pt-4 border-top">
+            <Button
+              icon="pi pi-times"
+              label="Annuler"
+              class="p-button-outlined p-button-secondary"
+              @click="router.push('/admin/users')"
+              type="button"
             />
-          </div>
-
-          <div class="col-md-6">
-            <label>Rôles</label>
-            <MultiSelect
-              v-model="form.roles"
-              :options="rolesDisponibles"
-              optionLabel="label"
-              optionValue="value"
-              display="chip"
-              placeholder="Choisir les rôles"
-              class="w-100"
+            <Button
+              type="submit"
+              icon="pi pi-check"
+              label="Enregistrer les modifications"
+              class="p-button-success"
+              :loading="saving"
+              :disabled="!isFormValid"
             />
-          </div>
-        </div>
-
-        <div class="mb-3 form-check">
-          <Checkbox v-model="form.isVerified" binary inputId="verified" />
-          <label for="verified" class="form-check-label ms-2">Email vérifié</label>
-        </div>
-
-        <div class="mb-4">
-          <label>Score de fiabilité</label>
-          <InputNumber v-model="form.scoreFiabilite" class="form-control" />
-        </div>
-
-        <div class="d-flex gap-2">
-            <Button type="submit" label="Enregistrer" icon="pi pi-check" class="p-button-success" :loading="saving" />
-            <RouterLink to="/admin/users" class="btn btn-link">Retour</RouterLink>
           </div>
         </form>
-      </div>
-    </div>
-  </template>
+      </template>
+    </Card>
 
-  <script setup>
-  import { ref, onMounted } from 'vue'
-  import { useRoute, useRouter } from 'vue-router'
-  import { fetchUserById, updateUser } from '@/api/users'
-  import { useNotifications } from '@/composables/useNotifications'
+    <!-- Dialog d'information sur le score -->
+    <Dialog
+      v-model:visible="showScoreInfo"
+      header="Score de fiabilité"
+      :modal="true"
+      style="width: 90%; max-width: 400px"
+      class="mx-auto"
+    >
+      <p class="mb-3">
+        Le score de fiabilité est calculé en fonction de plusieurs critères :
+      </p>
+      <ul class="list-unstyled">
+        <li class="d-flex align-items-center mb-2">
+          <i class="pi pi-check-circle text-success me-2"></i>
+          Email vérifié (+20%)
+        </li>
+        <li class="d-flex align-items-center mb-2">
+          <i class="pi pi-check-circle text-success me-2"></i>
+          Profil complété (+30%)
+        </li>
+        <li class="d-flex align-items-center mb-2">
+          <i class="pi pi-check-circle text-success me-2"></i>
+          Activité régulière (+25%)
+        </li>
+        <li class="d-flex align-items-center">
+          <i class="pi pi-check-circle text-success me-2"></i>
+          Signalements (+25%)
+        </li>
+      </ul>
+      <template #footer>
+        <Button
+          label="Fermer"
+          icon="pi pi-times"
+          @click="showScoreInfo = false"
+          class="p-button-text"
+        />
+      </template>
+    </Dialog>
 
-  const route = useRoute()
-  const router = useRouter()
-  const { notify } = useNotifications()
+    <!-- Toast pour les notifications -->
+    <Toast />
+  </div>
+</template>
 
-  const loading = ref(true)
-  const saving = ref(false)
-  const form = ref({
-    id: null,
-    email: '',
-    pseudo: '',
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useToast } from 'primevue/usetoast'
+import { fetchUserById, updateUser } from '@/api/users'
+
+// Composables
+const route = useRoute()
+const router = useRouter()
+const toast = useToast()
+
+// État réactif
+const loading = ref(true)
+const saving = ref(false)
+const showScoreInfo = ref(false)
+const errors = ref({})
+
+const form = ref({
+  id: null,
+  email: '',
+  pseudo: '',
   nom: '',
   prenom: '',
   telephone: '',
-  dateNaissance: '',
+  dateNaissance: null,
   statut: null,
   roles: [],
   isVerified: false,
   scoreFiabilite: 0,
 })
 
-  const status = [
-    { label: 'Actif', value: 'actif' },
-    { label: 'Suspendu', value: 'suspendu' },
-    { label: 'Supprimé', value: 'supprime' }
-  ]
-
+// Options
+const statusOptions = [
+  { label: 'Actif', value: 'actif' },
+  { label: 'Suspendu', value: 'suspendu' },
+  { label: 'Supprimé', value: 'supprime' }
+]
 
 const rolesDisponibles = [
   { label: 'Utilisateur', value: 'ROLE_USER' },
+  { label: 'Modérateur', value: 'ROLE_MODERATOR' },
   { label: 'Admin', value: 'ROLE_ADMIN' },
   { label: 'Super Admin', value: 'ROLE_SUPER_ADMIN' },
 ]
 
+// Computed
+const maxBirthDate = computed(() => {
+  const date = new Date()
+  date.setFullYear(date.getFullYear() - 13) // Âge minimum 13 ans
+  return date
+})
+
+const isFormValid = computed(() => {
+  return form.value.pseudo?.trim() &&
+    form.value.statut &&
+    form.value.roles?.length > 0
+})
+
+// Méthodes utilitaires
+const getStatusSeverity = (status) => {
+  const severityMap = {
+    'actif': 'success',
+    'suspendu': 'warning',
+    'supprime': 'danger'
+  }
+  return severityMap[status] || 'info'
+}
+
+const getStatusLabel = (status) => {
+  const option = statusOptions.find(opt => opt.value === status)
+  return option?.label || status
+}
+
+const validateForm = () => {
+  errors.value = {}
+
+  if (!form.value.pseudo?.trim()) {
+    errors.value.pseudo = 'Le pseudo est requis'
+  }
+
+  if (!form.value.statut) {
+    errors.value.statut = 'Le statut est requis'
+  }
+
+  if (!form.value.roles?.length) {
+    errors.value.roles = 'Au moins un rôle est requis'
+  }
+
+  return Object.keys(errors.value).length === 0
+}
+
+// Cycle de vie
 onMounted(async () => {
   try {
     const user = await fetchUserById(route.params.id)
@@ -137,30 +379,109 @@ onMounted(async () => {
       nom: user.nom || '',
       prenom: user.prenom || '',
       telephone: user.telephone || '',
-      dateNaissance: user.dateNaissance || '',
+      dateNaissance: user.dateNaissance ? new Date(user.dateNaissance) : null,
       statut: user.statut || null,
       roles: user.roles || [],
       isVerified: user.isVerified || false,
       scoreFiabilite: user.scoreFiabilite || 0,
     }
   } catch (error) {
-    notify.error('Impossible de charger l’utilisateur')
+    toast.add({
+      severity: 'error',
+      summary: 'Erreur',
+      detail: 'Impossible de charger l\'utilisateur',
+      life: 5000
+    })
+    console.error('[onMounted] error:', error)
   } finally {
     loading.value = false
   }
 })
 
+// Gestionnaire de soumission
 const submitForm = async () => {
+  if (!validateForm()) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Formulaire invalide',
+      detail: 'Veuillez corriger les erreurs avant de continuer',
+      life: 4000
+    })
+    return
+  }
+
   saving.value = true
+
   try {
-    await updateUser(form.value.id, form.value)
-    notify.success('Utilisateur mis à jour')
-    router.push('/admin/users')
+    const payload = {
+      ...form.value,
+      dateNaissance: form.value.dateNaissance ?
+        form.value.dateNaissance.toISOString().split('T')[0] : null
+    }
+
+    await updateUser(form.value.id, payload)
+
+    toast.add({
+      severity: 'success',
+      summary: 'Succès',
+      detail: 'Utilisateur mis à jour avec succès',
+      life: 3000
+    })
+
+    // Redirection après un petit délai pour voir le toast
+    setTimeout(() => {
+      router.push('/admin/users')
+    }, 1000)
+
   } catch (error) {
-    notify.error('Erreur lors de la mise à jour')
+    toast.add({
+      severity: 'error',
+      summary: 'Erreur',
+      detail: error.message || 'Erreur lors de la mise à jour',
+      life: 5000
+    })
     console.error('[submitForm] error:', error)
   } finally {
     saving.value = false
   }
 }
 </script>
+
+<style scoped>
+.field-group {
+  background-color: var(--bs-light, #f8f9fa);
+  border-radius: 0.375rem;
+  padding: 1.5rem;
+  border-left: 4px solid var(--bs-primary, #0d6efd);
+}
+
+.field-group h3 {
+  margin-top: 0;
+  color: var(--bs-primary, #0d6efd);
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}
+
+/* Responsive adjustments pour les très petits écrans */
+@media (max-width: 576px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .field-group {
+    padding: 1rem;
+  }
+
+  .d-flex.justify-content-end {
+    flex-direction: column;
+  }
+
+  .d-flex.justify-content-end button {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+}
+</style>

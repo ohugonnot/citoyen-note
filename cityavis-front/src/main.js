@@ -14,30 +14,65 @@ import 'leaflet/dist/leaflet.css'
 
 // Corrige le path des images Leaflet en prod
 delete L.Icon.Default.prototype._getIconUrl
-
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: '/images/leaflet/marker-icon-2x.png',
   iconUrl: '/images/leaflet/marker-icon.png',
   shadowUrl: '/images/leaflet/marker-shadow.png',
 })
 
-import PrimeVue from 'primevue/config';
+// PrimeVue setup
+import PrimeVue from 'primevue/config'
 import 'primeicons/primeicons.css'
 import Aura from '@primeuix/themes/aura'
 
+// Importation individuelle des composants PrimeVue
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import DatePicker from 'primevue/datepicker'
+import DatePicker from 'primevue/datepicker' // aliasé plus bas en DatePicker
 import MultiSelect from 'primevue/multiselect'
 import InputNumber from 'primevue/inputnumber'
 import Checkbox from 'primevue/checkbox'
-import Select from 'primevue/select'
+import Select from 'primevue/select' // aliasé plus bas en Select
+import InputGroup from 'primevue/inputgroup'
+import InputText from 'primevue/inputtext'
+import Card from 'primevue/card'
+import Badge from 'primevue/badge'
+import Avatar from 'primevue/avatar'
+import ProgressBar from 'primevue/progressbar'
+import Paginator from 'primevue/paginator'
+import Toast from 'primevue/toast'
+import ToastService from 'primevue/toastservice'
+import ProgressSpinner from 'primevue/progressspinner'
 
-(async () => {
+// Enregistrement automatique des composants
+const components = {
+    DataTable,
+    Column,
+    Button,
+    Dialog,
+    Message,
+    Tag,
+    DatePicker, // alias pour cohérence avec ton code
+    MultiSelect,
+    InputNumber,
+    Checkbox,
+    Select,      // alias également
+    InputGroup,
+    InputText,
+    Card,
+    Badge,
+    Avatar,
+    ProgressBar,
+    Paginator,
+    Toast,
+    ProgressSpinner,
+  }
+
+;(async () => {
   const app = createApp(App)
   const pinia = createPinia()
   app.use(pinia)
@@ -51,10 +86,7 @@ import Select from 'primevue/select'
     const requiresAdmin = to.meta.requiresAdmin
 
     if (requiresAuth && !authStore.isAuthenticated) {
-      return next({
-        path: '/login',
-        query: { redirect: to.fullPath }
-      })
+      return next({ path: '/login', query: { redirect: to.fullPath } })
     }
 
     if (requiresGuest && authStore.isAuthenticated) {
@@ -76,20 +108,12 @@ import Select from 'primevue/select'
 
   app.use(router)
   app.use(PrimeVue, {
-    theme: {
-      preset: Aura
-    }
+    theme: { preset: Aura }
   })
-  app.component('DataTable', DataTable)
-  app.component('Column', Column)
-  app.component('Button', Button)
-  app.component('Dialog', Dialog)
-  app.component('Message', Message)
-  app.component('Tag', Tag)
-  app.component('DatePicker',DatePicker)
-  app.component('MultiSelect',MultiSelect)
-  app.component('InputNumber',InputNumber)
-  app.component('Checkbox',Checkbox)
-  app.component('Select',Select)
+  app.use(ToastService)
+  Object.entries(components).forEach(([name, component]) => {
+    app.component(name, component)
+  })
+
   app.mount('#app')
 })()

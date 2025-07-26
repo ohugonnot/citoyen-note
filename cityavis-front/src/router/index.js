@@ -61,6 +61,11 @@ const routes = [
       description: 'Modifier les informations d’un utilisateur'
     }
   },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    redirect: '/login'
+  },
   /*
   {
     path: '/mes-evaluations',

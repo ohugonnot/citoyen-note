@@ -33,7 +33,7 @@
                       <div class="d-flex align-items-center w-100">
                         <i class="bi bi-person me-2 text-primary"></i>
                         <span v-if="!isEditing" class="fs-6">{{ user.prenom || 'Non renseigné' }}</span>
-                        <input v-else v-model="user.prenom" type="text" class="form-control" />
+                        <input v-else v-model="user.prenom" type="text" class="form-control" :class="{ 'editing-input': isEditing }" />
                       </div>
                     </div>
                   </div>
@@ -43,7 +43,7 @@
                       <div class="d-flex align-items-center w-100">
                         <i class="bi bi-person me-2 text-primary"></i>
                         <span v-if="!isEditing" class="fs-6">{{ user.nom || 'Non renseigné' }}</span>
-                        <input v-else v-model="user.nom" type="text" class="form-control" />
+                        <input v-else v-model="user.nom" type="text" class="form-control" :class="{ 'editing-input': isEditing }"/>
                       </div>
                     </div>
                   </div>
@@ -54,7 +54,7 @@
                   <div class="d-flex align-items-center">
                     <i class="bi bi-at me-2 text-primary"></i>
                     <span v-if="!isEditing" class="fs-6">{{ user.pseudo || 'Non défini' }}</span>
-                    <input v-else v-model="user.pseudo" type="text" class="form-control" />
+                    <input v-else v-model="user.pseudo" type="text" class="form-control" :class="{ 'editing-input': isEditing }" />
                   </div>
                 </div>
 
@@ -68,7 +68,7 @@
                         {{ getAge(user.dateNaissance) }} ans
                       </span>
                     </template>
-                    <input v-else v-model="user.dateNaissance" type="date" class="form-control" />
+                    <input v-else v-model="user.dateNaissance" type="date" class="form-control"  :class="{ 'editing-input': isEditing }" />
                   </div>
                 </div>
               </div>
@@ -103,7 +103,7 @@
                   <div class="d-flex align-items-center w-100">
                     <i class="bi bi-phone me-2 text-primary"></i>
                     <span v-if="!isEditing" class="fs-6">{{ user.telephone || 'Non renseigné' }}</span>
-                    <input v-else v-model="user.telephone" type="text" class="form-control" />
+                    <input v-else v-model="user.telephone" type="text" class="form-control"  :class="{ 'editing-input': isEditing }" />
                   </div>
                 </div>
               </div>
@@ -451,4 +451,14 @@ const getAge = (dateNaissance) => {
     font-size: 2rem !important;
   }
 }
+
+.editing-input {
+  border: 1px solid #7c3aed;
+  background-color: #f3e8ff;
+  transition: all 0.3s ease-in-out;
+}
+.editing-input:focus {
+  border-color: #4f46e5;
+}
+
 </style>
