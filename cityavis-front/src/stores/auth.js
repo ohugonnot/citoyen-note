@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { nextTick } from 'vue'
-import apiClient from '@/axios'
+import apiClient, { refreshClient } from '@/axios'
 import router from '@/router'
 
 const STORAGE_KEYS = {
@@ -97,11 +97,10 @@ export const useAuthStore = defineStore('auth', {
         this.setUser(data)
         return data
       } catch (error) {
-        if (error.response?.status === 401) {
-          await this.logout()
-          throw new Error('Session expirée')
-        }
-        console.error('[fetchUser] Échec', error)
+        console.error('[fetchUser] Erreur complète:', error)
+
+        // Laisser l'intercepteur axios gérer les 401
+        // Ne plus faire de logout automatique ici pour éviter les conflits
         throw error
       } finally {
         this.isLoading = false
@@ -129,6 +128,8 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async logout(redirectPath = '/login', showMessage = false) {
+      console.log('[logout] Début déconnexion, redirectPath:', redirectPath)
+
       try {
         if (this.accessToken) {
           await apiClient.post('/api/logout').catch(() => {})
@@ -139,8 +140,20 @@ export const useAuthStore = defineStore('auth', {
 
       this.clearAuthData()
 
-      if (router.currentRoute.value.path !== redirectPath) {
-        await router.push(redirectPath)
+      try {
+        const currentPath = router.currentRoute.value.path
+        console.log('[logout] Route actuelle:', currentPath)
+
+        if (currentPath !== redirectPath) {
+          await router.push(redirectPath)
+          console.log('[logout] Redirection réussie vers:', redirectPath)
+        }
+      } catch (navigationError) {
+        console.error('[logout] Erreur de navigation:', navigationError)
+        // Fallback sécurisé
+        setTimeout(() => {
+          window.location.href = redirectPath
+        }, 100)
       }
 
       if (showMessage) {
@@ -150,24 +163,36 @@ export const useAuthStore = defineStore('auth', {
 
     async refreshTokenIfNeeded() {
       if (!this.refreshToken) {
-        await this.logout()
+        console.warn('[refreshToken] Aucun refresh token disponible')
         return false
       }
 
       try {
-        const { data } = await apiClient.post('/api/token/refresh', {
+        console.log('[refreshToken] Tentative de rafraîchissement...')
+        // Utiliser refreshClient pour éviter la boucle infinie
+        const { data } = await refreshClient.post('/api/token/refresh', {
           refresh_token: this.refreshToken,
         })
 
-        if (!data.token) throw new Error('Nouveau token manquant')
+        if (!data.token) {
+          console.error('[refreshToken] Nouveau token manquant dans la réponse')
+          throw new Error('Nouveau token manquant')
+        }
 
         this.setAccessToken(data.token)
         if (data.refresh_token) this.setRefreshToken(data.refresh_token)
 
+        console.log('[refreshToken] Rafraîchissement réussi')
         return true
       } catch (error) {
-        console.error('[refreshToken] Erreur', error)
-        await this.logout()
+        console.error('[refreshToken] Erreur détaillée:', error.response?.status, error.response?.data)
+
+        // Si c'est une erreur 401, le refresh token est invalide
+        if (error.response?.status === 401) {
+          console.warn('[refreshToken] Refresh token invalide/expiré')
+          this.clearAuthData()
+        }
+
         return false
       }
     },
@@ -180,7 +205,7 @@ export const useAuthStore = defineStore('auth', {
         return true
       } catch (error) {
         console.error('[initializeAuth] Erreur', error)
-        await this.logout()
+        // Ne plus faire de logout automatique ici non plus
         return false
       }
     },

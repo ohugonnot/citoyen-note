@@ -18,6 +18,15 @@ const apiClient = axios.create({
   },
 });
 
+// Instance séparée pour le refresh (sans intercepteurs)
+const refreshClient = axios.create({
+  baseURL: BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 // État du rafraîchissement des tokens
 const tokenRefreshState = {
   isRefreshing: false,
@@ -138,13 +147,16 @@ apiClient.interceptors.response.use(
     tokenRefreshState.isRefreshing = true;
 
     try {
+      console.log('[Axios] Tentative de refresh du token...');
       const refreshSuccess = await authStore.refreshTokenIfNeeded();
 
       if (!refreshSuccess) {
+        console.error('[Axios] Refresh token échoué, déconnexion forcée');
         throw new Error('Token refresh failed');
       }
 
       const newAccessToken = authStore.accessToken;
+      console.log('[Axios] Refresh token réussi, relance des requêtes');
 
       // Traiter la queue avec le nouveau token
       processFailedRequestsQueue(null, newAccessToken);
@@ -154,11 +166,24 @@ apiClient.interceptors.response.use(
       return apiClient(originalRequest);
 
     } catch (refreshError) {
+      console.error('[Axios] Échec refresh token, déconnexion...', refreshError);
+
       // En cas d'échec, traiter la queue avec l'erreur
       processFailedRequestsQueue(refreshError);
 
-      // Optionnel : déconnecter l'utilisateur en cas d'échec du refresh
-      await authStore.logout();
+      // Déconnecter l'utilisateur en cas d'échec du refresh
+      console.log('[Axios] Déconnexion en cours...');
+      try {
+        await authStore.logout('/login', true);
+        console.log('[Axios] Déconnexion réussie');
+      } catch (logoutError) {
+        console.error('[Axios] Erreur lors du logout:', logoutError);
+        // Fallback : forcer le rechargement
+        console.log('[Axios] Fallback - rechargement forcé');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 100);
+      }
 
       return Promise.reject(refreshError);
 
@@ -169,3 +194,4 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+export { refreshClient };
