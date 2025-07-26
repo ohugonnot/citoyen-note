@@ -1,0 +1,21 @@
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType application/javascript .mjs
+    AddType text/css .css
+    AddType image/svg+xml .svg
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Servir directement tous les fichiers existants
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule .* - [L]
+    
+    # Servir directement tous les dossiers existants
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule .* - [L]
+    
+    # Pour toutes les autres requêtes (routes Vue), servir index.html
+    RewriteRule .* index.html [L]
+</IfModule>
