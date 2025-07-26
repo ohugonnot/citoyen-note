@@ -11,13 +11,13 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
 use Symfony\Component\Security\Http\Event\LoginFailureEvent;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
+use Symfony\Component\Routing\Attribute\Route;
 
 class AuthController extends AbstractController
 {
@@ -112,18 +112,63 @@ class AuthController extends AbstractController
             return $this->json([
                 'token' => $token,
                 'refresh_token' => $refreshToken->getRefreshToken(),
-                'user' => [
-                    'id' => $user->getId(),
-                    'email' => $user->getEmail(),
-                    'pseudo' => $user->getPseudo(),
-                    'roles' => $user->getRoles(),
-                ]
+                'user' => $this->buildUserJson($user)
             ]);
         } catch (\Exception $e) {
             $logger->error('JWT token generation failed', ['email' => $user->getEmail(), 'error' => $e->getMessage()]);
             return $this->json(['error' => 'Erreur lors de la génération du token'], 500);
         }
     }
+
+    #[Route('/api/users/{id}', name: 'api_update_user', methods: ['PUT'])]
+    public function updateUser(
+        int $id,
+        Request $request,
+        EntityManagerInterface $em,
+        #[CurrentUser] ?User $currentUser
+    ): JsonResponse {
+        if (!$currentUser) {
+            return $this->json(['error' => 'Non authentifié'], 401);
+        }
+
+        // On ne permet que la modification de son propre profil
+        if ($currentUser->getId() !== $id) {
+            return $this->json(['error' => 'Accès non autorisé'], 403);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        // On autorise uniquement certaines propriétés
+        $allowedFields = ['nom', 'prenom', 'telephone', 'dateNaissance','pseudo'];
+
+        foreach ($allowedFields as $field) {
+            if (!array_key_exists($field, $data)) {
+                continue;
+            }
+
+            $value = $data[$field];
+
+            // Convertir la date de naissance si nécessaire
+            if ($field === 'dateNaissance' && is_string($value)) {
+                try {
+                    $value = new \DateTime($value);
+                } catch (\Exception $e) {
+                    return $this->json(['error' => 'Format de date invalide pour dateNaissance'], 400);
+                }
+            }
+
+            $setter = 'set' . ucfirst($field);
+            if (method_exists($currentUser, $setter)) {
+                $currentUser->$setter($value);
+            }
+        }
+
+        $em->persist($currentUser);
+        $em->flush();
+
+        return $this->json($this->buildUserJson($currentUser));
+    }
+
 
     #[Route('/api/me', name: 'api_me', methods: ['GET'])]
     public function me(#[CurrentUser] ?User $user): JsonResponse
@@ -132,20 +177,29 @@ class AuthController extends AbstractController
             return $this->json(['error' => 'Non authentifié'], 401);
         }
 
-        return $this->json([
-            'id' => $user->getId(),
-            'email' => $user->getEmail(),
-            'pseudo' => $user->getPseudo(),
-            'statut' => $user->getStatut()->value,
-            'roles' => $user->getRoles(),
-            'isVerified' => $user->isVerified(),
-            'scoreFiabilite' => $user->getScoreFiabilite(),
-        ]);
+        return $this->json($this->buildUserJson($user));
     }
 
     #[Route('/api/logout', name: 'api_logout', methods: ['POST','GET'])]
     public function logout(): JsonResponse
     {
         return $this->json(['message' => 'Déconnexion réussie']);
+    }
+
+    private function buildUserJson(User $user): array
+    {
+        return [
+            'id' => $user->getId(),
+            'email' => $user->getEmail(),
+            'pseudo' => $user->getPseudo(),
+            'nom' => $user->getNom(),
+            'prenom' => $user->getPrenom(),
+            'telephone' => $user->getTelephone(),
+            'dateNaissance' => $user->getDateNaissance(),
+            'statut' => $user->getStatut()?->value,
+            'roles' => $user->getRoles(),
+            'isVerified' => $user->isVerified(),
+            'scoreFiabilite' => $user->getScoreFiabilite(),
+        ];
     }
 }

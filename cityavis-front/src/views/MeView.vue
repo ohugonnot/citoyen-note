@@ -2,30 +2,84 @@
   <div class="container py-5">
     <div class="row justify-content-center">
       <div class="col-lg-8 col-xl-6">
-        <!-- Card principale du profil -->
         <div class="card shadow-lg border-0">
-          <!-- En-tête avec dégradé -->
           <div class="card-header bg-gradient-primary text-white text-center py-4">
             <div class="profile-avatar mb-3">
               <div class="avatar-circle d-inline-flex align-items-center justify-content-center">
                 <i class="bi bi-person-fill" style="font-size: 3rem;"></i>
               </div>
             </div>
-            <h2 class="mb-1">{{ user.pseudo || 'Utilisateur' }}</h2>
+            <h2 class="mb-1">{{ user.pseudo || user.prenom || 'Utilisateur' }}</h2>
+            <p class="mb-2 text-white-50">{{ user.nom }} {{ user.prenom }}</p>
             <span class="badge bg-light text-primary px-3 py-2 rounded-pill">
               <i class="bi bi-circle-fill me-1" :class="statusClass" style="font-size: 0.6rem;"></i>
               {{ statusText }}
             </span>
           </div>
 
-          <!-- Corps de la carte -->
           <div class="card-body p-4">
-            <!-- Informations principales -->
+            <!-- Informations personnelles -->
             <div class="row mb-4">
               <div class="col-12">
                 <h5 class="text-primary mb-3">
-                  <i class="bi bi-info-circle me-2"></i>
+                  <i class="bi bi-person-circle me-2"></i>
                   Informations personnelles
+                </h5>
+
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="info-item mb-3">
+                      <label class="form-label text-muted small fw-bold text-uppercase">Prénom</label>
+                      <div class="d-flex align-items-center w-100">
+                        <i class="bi bi-person me-2 text-primary"></i>
+                        <span v-if="!isEditing" class="fs-6">{{ user.prenom || 'Non renseigné' }}</span>
+                        <input v-else v-model="user.prenom" type="text" class="form-control" />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="info-item mb-3">
+                      <label class="form-label text-muted small fw-bold text-uppercase">Nom</label>
+                      <div class="d-flex align-items-center w-100">
+                        <i class="bi bi-person me-2 text-primary"></i>
+                        <span v-if="!isEditing" class="fs-6">{{ user.nom || 'Non renseigné' }}</span>
+                        <input v-else v-model="user.nom" type="text" class="form-control" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="info-item mb-3">
+                  <label class="form-label text-muted small fw-bold text-uppercase">Pseudo</label>
+                  <div class="d-flex align-items-center">
+                    <i class="bi bi-at me-2 text-primary"></i>
+                    <span v-if="!isEditing" class="fs-6">{{ user.pseudo || 'Non défini' }}</span>
+                    <input v-else v-model="user.pseudo" type="text" class="form-control" />
+                  </div>
+                </div>
+
+                <div class="info-item mb-3">
+                  <label class="form-label text-muted small fw-bold text-uppercase">Date de naissance</label>
+                  <div class="d-flex align-items-center w-100">
+                    <i class="bi bi-calendar-event me-2 text-primary"></i>
+                    <template v-if="!isEditing">
+                      <span class="fs-6">{{ formatDateNaissance(user.dateNaissance) }}</span>
+                      <span v-if="getAge(user.dateNaissance)" class="badge bg-info ms-2">
+                        {{ getAge(user.dateNaissance) }} ans
+                      </span>
+                    </template>
+                    <input v-else v-model="user.dateNaissance" type="date" class="form-control" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Contact -->
+            <div class="row mb-4">
+              <div class="col-12">
+                <h5 class="text-primary mb-3">
+                  <i class="bi bi-telephone me-2"></i>
+                  Contact
                 </h5>
 
                 <div class="info-item mb-3">
@@ -45,27 +99,51 @@
                 </div>
 
                 <div class="info-item mb-3">
-                  <label class="form-label text-muted small fw-bold text-uppercase">Identifiant</label>
-                  <div class="d-flex align-items-center">
-                    <i class="bi bi-hash text-primary me-2"></i>
-                    <span class="fs-6">{{ user.id }}</span>
-                  </div>
-                </div>
-
-                <div class="info-item mb-3">
-                  <label class="form-label text-muted small fw-bold text-uppercase">Rôles</label>
-                  <div class="d-flex align-items-center flex-wrap">
-                    <i class="bi bi-person-badge text-primary me-2"></i>
-                    <span v-for="role in user.roles" :key="role"
-                          class="badge bg-primary me-1 mb-1">
-                      {{ formatRole(role) }}
-                    </span>
+                  <label class="form-label text-muted small fw-bold text-uppercase">Téléphone</label>
+                  <div class="d-flex align-items-center w-100">
+                    <i class="bi bi-phone me-2 text-primary"></i>
+                    <span v-if="!isEditing" class="fs-6">{{ user.telephone || 'Non renseigné' }}</span>
+                    <input v-else v-model="user.telephone" type="text" class="form-control" />
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Score de fiabilité -->
+            <!-- Informations système -->
+            <div class="row mb-4">
+              <div class="col-12">
+                <h5 class="text-primary mb-3">
+                  <i class="bi bi-gear me-2"></i>
+                  Informations système
+                </h5>
+
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="info-item mb-3">
+                      <label class="form-label text-muted small fw-bold text-uppercase">Identifiant</label>
+                      <div class="d-flex align-items-center">
+                        <i class="bi bi-hash text-primary me-2"></i>
+                        <span class="fs-6">{{ user.id }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="info-item mb-3">
+                      <label class="form-label text-muted small fw-bold text-uppercase">Rôles</label>
+                      <div class="d-flex align-items-center flex-wrap">
+                        <i class="bi bi-person-badge text-primary me-2"></i>
+                        <span v-for="role in user.roles" :key="role"
+                              class="badge bg-primary me-1 mb-1">
+                          {{ formatRole(role) }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Score -->
             <div class="mb-4">
               <h5 class="text-primary mb-3">
                 <i class="bi bi-star me-2"></i>
@@ -85,11 +163,25 @@
               </div>
             </div>
 
-            <!-- Actions -->
+            <!-- Bouton Modifier / Enregistrer -->
             <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-              <button class="btn btn-outline-primary me-md-2" type="button">
+              <button
+                v-if="!isEditing"
+                class="btn btn-outline-primary me-md-2"
+                type="button"
+                @click="startEditing"
+              >
                 <i class="bi bi-pencil me-2"></i>
                 Modifier le profil
+              </button>
+              <button
+                v-else
+                class="btn btn-primary"
+                type="button"
+                @click="saveProfile"
+              >
+                <i class="bi bi-check-lg me-2"></i>
+                Enregistrer
               </button>
             </div>
           </div>
@@ -106,30 +198,60 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useNotifications } from '@/composables/useNotifications' // ou le bon chemin
 
 const auth = useAuthStore()
-const user = auth.user
+const { notify } = useNotifications()
+const user = ref({ ...auth.user })
+const isEditing = ref(false)
 
-console.log(user)
+const startEditing = () => {
+  isEditing.value = true
+}
 
-// Computed properties pour le statut
+const saveProfile = async () => {
+  try {
+    if (!user.value.nom || !user.value.prenom) {
+      notify.warning('Nom et prénom sont requis.', 'Champs manquants')
+      return
+    }
+
+    const success = await auth.saveUserProfile({
+      nom: user.value.nom,
+      prenom: user.value.prenom,
+      pseudo: user.value.pseudo,
+      telephone: user.value.telephone,
+      dateNaissance: user.value.dateNaissance,
+    })
+
+    if (success) {
+      isEditing.value = false
+      notify.success('Profil mis à jour avec succès.')
+    } else {
+      notify.error('Une erreur est survenue lors de la mise à jour.')
+    }
+  } catch (error) {
+    console.error('[saveProfile] Exception :', error)
+    notify.error('Erreur inattendue lors de la sauvegarde du profil.')
+  }
+}
+
 const statusClass = computed(() => {
-  return user.statut === 'actif' ? 'text-success' : 'text-danger'
+  return user.value.statut === 'actif' ? 'text-success' : 'text-danger'
 })
 
 const statusText = computed(() => {
-  return user.statut === 'actif' ? 'Actif' : 'Inactif'
+  return user.value.statut === 'actif' ? 'Actif' : 'Inactif'
 })
 
-// Computed properties pour le score de fiabilité
 const fiabilityPercentage = computed(() => {
-  return Math.max(0, Math.min(100, user.scoreFiabilite))
+  return Math.max(0, Math.min(100, user.value.scoreFiabilite))
 })
 
 const fiabilityLevel = computed(() => {
-  const score = user.scoreFiabilite
+  const score = user.value.scoreFiabilite
   if (score >= 80) return 'Excellent'
   if (score >= 60) return 'Bon'
   if (score >= 40) return 'Moyen'
@@ -138,17 +260,50 @@ const fiabilityLevel = computed(() => {
 })
 
 const fiabilityBadgeClass = computed(() => {
-  const score = user.scoreFiabilite
+  const score = user.value.scoreFiabilite
   if (score >= 80) return 'bg-success'
   if (score >= 60) return 'bg-info'
   if (score >= 40) return 'bg-warning'
   return 'bg-danger'
 })
 
-// Fonction pour formater les rôles
 const formatRole = (role) => {
   return role.replace('ROLE_', '').toLowerCase().replace('_', ' ')
     .replace(/\b\w/g, l => l.toUpperCase())
+}
+
+const formatDateNaissance = (dateNaissance) => {
+  if (!dateNaissance) return 'Non renseignée'
+  try {
+    const date = new Date(dateNaissance)
+    if (isNaN(date.getTime())) return 'Date invalide'
+    return date.toLocaleDateString('fr-FR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  } catch (error) {
+    console.error('[formatDateNaissance] Erreur', error)
+    return 'Date invalide'
+  }
+}
+
+const getAge = (dateNaissance) => {
+  if (!dateNaissance) return null
+  try {
+    const birth = new Date(dateNaissance)
+    if (isNaN(birth.getTime())) return null
+    const today = new Date()
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--
+    }
+    return age >= 0 ? age : null
+  } catch (error) {
+    console.error('[getAge] Erreur', error)
+    return null
+  }
 }
 </script>
 
@@ -201,7 +356,6 @@ const formatRole = (role) => {
   padding: 1rem;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border-radius: 12px;
-  border-left: 4px solid #4f46e5;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   border: 1px solid rgba(79, 70, 229, 0.1);
 }
