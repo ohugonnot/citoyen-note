@@ -9,13 +9,10 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 
 import './assets/globals.css'
 
-const app = createApp(App)
-const pinia = createPinia()
-
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
-// corrige le path des images Leaflet en prod
+// Corrige le path des images Leaflet en prod
 delete L.Icon.Default.prototype._getIconUrl
 
 L.Icon.Default.mergeOptions({
@@ -24,39 +21,44 @@ L.Icon.Default.mergeOptions({
   shadowUrl: '/images/leaflet/marker-shadow.png',
 })
 
-app.use(pinia)
-app.use(router)
+// 👇 Tout ce qui suit est déplacé dans une IIFE
+;(async () => {
+  const app = createApp(App)
+  const pinia = createPinia()
+  app.use(pinia)
 
-const { useAuthStore } = await import('./stores/auth')
-const authStore = useAuthStore()
+  const { useAuthStore } = await import('./stores/auth')
+  const authStore = useAuthStore()
 
-router.beforeEach(async (to, from, next) => {
-  const requiresAuth = to.meta.requiresAuth
-  const requiresGuest = to.meta.requiresGuest
-  const requiresAdmin = to.meta.requiresAdmin
+  router.beforeEach(async (to, from, next) => {
+    const requiresAuth = to.meta.requiresAuth
+    const requiresGuest = to.meta.requiresGuest
+    const requiresAdmin = to.meta.requiresAdmin
 
-  if (requiresAuth && !authStore.isAuthenticated) {
-    return next({
-      path: '/login',
-      query: { redirect: to.fullPath }
-    })
+    if (requiresAuth && !authStore.isAuthenticated) {
+      return next({
+        path: '/login',
+        query: { redirect: to.fullPath }
+      })
+    }
+
+    if (requiresGuest && authStore.isAuthenticated) {
+      return next('/')
+    }
+
+    if (requiresAdmin && (!authStore.isAuthenticated || !authStore.user?.is_admin)) {
+      return next('/')
+    }
+
+    next()
+  })
+
+  try {
+    await authStore.initializeAuth()
+  } catch (error) {
+    console.warn('Auth initialization failed:', error)
   }
 
-  if (requiresGuest && authStore.isAuthenticated) {
-    return next('/')
-  }
-
-  if (requiresAdmin && (!authStore.isAuthenticated || !authStore.user?.is_admin)) {
-    return next('/')
-  }
-
-  next()
-})
-
-try {
-  await authStore.initializeAuth()
-} catch (error) {
-  console.warn('Auth initialization failed:', error)
-}
-
-app.mount('#app')
+  app.use(router)
+  app.mount('#app')
+})()
