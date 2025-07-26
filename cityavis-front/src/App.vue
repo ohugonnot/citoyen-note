@@ -50,7 +50,6 @@ onMounted(async () => {
 
 <style>
 .app-container {
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -62,7 +61,7 @@ onMounted(async () => {
 }
 
 .main-content.with-header {
-  padding-top: 70px;
+  padding-top: 30px;
 }
 
 .page-enter-active,
