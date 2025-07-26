@@ -1,80 +1,189 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-
-// Import views
-import HomeView from '@/views/HomeView.vue'
-import LoginView from '@/views/LoginView.vue'
-import RegisterView from '@/views/RegisterView.vue'
 
 const routes = [
   {
     path: '/',
-    name: 'home',
-    component: HomeView,
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/me',
-    name: 'me',
-    component: () => import('@/views/MeView.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/users',
-    name: 'users',
-    component: () => import('@/views/UsersView.vue'),
-    meta: { requiresAuth: true, requiresRole: 'ROLE_USER' },
+    name: 'Home',
+    component: () => import('@/views/HomeView.vue'),
+    meta: {
+      title: 'Accueil - CitoyenNote',
+      description: 'Évaluez et améliorez vos services publics locaux'
+    }
   },
   {
     path: '/login',
-    name: 'login',
-    component: LoginView,
-    meta: { requiresGuest: true },
+    name: 'Login',
+    component: () => import('@/views/LoginView.vue'),
+    meta: {
+      requiresGuest: true,
+      title: 'Connexion - CitoyenNote',
+      description: 'Connectez-vous à votre espace citoyen'
+    }
   },
   {
     path: '/register',
-    name: 'register',
-    component: RegisterView,
-    meta: { requiresGuest: true },
+    name: 'Register',
+    component: () => import('@/views/RegisterView.vue'),
+    meta: {
+      requiresGuest: true,
+      title: 'Inscription - CitoyenNote',
+      description: 'Créez votre compte citoyen'
+    }
   },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/MeView.vue'),
+    meta: {
+      requiresAuth: true,
+      title: 'Mon Profil - CitoyenNote',
+      description: 'Gérez votre profil citoyen'
+    }
+  },
+  /*
+  {
+    path: '/mes-evaluations',
+    name: 'MyEvaluations',
+    component: () => import('@/views/MyEvaluations.vue'),
+    meta: {
+      requiresAuth: true,
+      title: 'Mes Évaluations - CitoyenNote',
+      description: 'Consultez vos évaluations de services publics'
+    }
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('@/views/Settings.vue'),
+    meta: {
+      requiresAuth: true,
+      title: 'Paramètres - CitoyenNote',
+      description: 'Configurez votre compte'
+    }
+  },
+  {
+    path: '/services',
+    name: 'Services',
+    component: () => import('@/views/Services.vue'),
+    meta: {
+      title: 'Services Publics - CitoyenNote',
+      description: 'Découvrez tous les services publics de votre région'
+    }
+  },
+  {
+    path: '/services/:id',
+    name: 'ServiceDetail',
+    component: () => import('@/views/ServiceDetail.vue'),
+    meta: {
+      title: 'Service Public - CitoyenNote'
+    }
+  },
+  {
+    path: '/admin',
+    redirect: '/admin/dashboard'
+  },
+  {
+    path: '/admin/dashboard',
+    name: 'AdminDashboard',
+    component: () => import('@/views/admin/Dashboard.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Administration - CitoyenNote',
+      description: 'Tableau de bord administrateur'
+    }
+  },
+  {
+    path: '/admin/users',
+    name: 'AdminUsers',
+    component: () => import('@/views/admin/Users.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Gestion Utilisateurs - CitoyenNote'
+    }
+  },
+  {
+    path: '/admin/services',
+    name: 'AdminServices',
+    component: () => import('@/views/admin/Services.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Gestion Services - CitoyenNote'
+    }
+  },
+  {
+    path: '/admin/analytics',
+    name: 'AdminAnalytics',
+    component: () => import('@/views/admin/Analytics.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Statistiques - CitoyenNote'
+    }
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('@/views/ForgotPassword.vue'),
+    meta: {
+      requiresGuest: true,
+      title: 'Mot de passe oublié - CitoyenNote'
+    }
+  },
+  {
+    path: '/terms',
+    name: 'Terms',
+    component: () => import('@/views/Terms.vue'),
+    meta: {
+      title: 'Conditions d\'utilisation - CitoyenNote'
+    }
+  },
+  {
+    path: '/privacy',
+    name: 'Privacy',
+    component: () => import('@/views/Privacy.vue'),
+    meta: {
+      title: 'Politique de confidentialité - CitoyenNote'
+    }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('@/views/NotFound.vue'),
+    meta: {
+      title: 'Page non trouvée - CitoyenNote'
+    }
+  }
+  */
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) {
+      return savedPosition
+    }
+    if (to.hash) {
+      return { el: to.hash, behavior: 'smooth' }
+    }
+    return { top: 0, behavior: 'smooth' }
+  }
 })
 
-router.beforeEach(async (to, from, next) => {
-  const auth = useAuthStore()
+router.afterEach((to) => {
+  document.title = to.meta.title || 'CitoyenNote - République Française'
 
-  // Si la session est active mais user pas chargé, on fetch
-  if (auth.isAuthenticated && !auth.user) {
-    try {
-      await auth.fetchUser()
-    } catch {
-      auth.logout()
-      return next({ name: 'login' })
-    }
+  const description = to.meta.description || 'Évaluez et améliorez vos services publics locaux'
+  let metaDescription = document.querySelector('meta[name="description"]')
+  if (!metaDescription) {
+    metaDescription = document.createElement('meta')
+    metaDescription.name = 'description'
+    document.head.appendChild(metaDescription)
   }
-
-  // Auth requise ?
-  if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    return next({ name: 'login' })
-  }
-
-  // Vérification rôle uniquement si user chargé
-  if (to.meta.requiresRole) {
-    if (!auth.user || !auth.user.roles.includes(to.meta.requiresRole)) {
-      return next({ name: 'home' }) // ou page 403 personnalisée
-    }
-  }
-
-  // Routes publiques si connecté ?
-  if (to.meta.requiresGuest && auth.isAuthenticated) {
-    return next({ name: 'home' })
-  }
-
-  next()
+  metaDescription.content = description
 })
 
 export default router
