@@ -189,7 +189,7 @@
           <!-- Pied de carte -->
           <div class="card-footer bg-light text-center text-muted small">
             <i class="bi bi-clock me-1"></i>
-            Dernière mise à jour : {{ new Date().toLocaleDateString('fr-FR') }}
+            Dernière mise à jour : {{ user?.updatedAt || new Date().toLocaleDateString('fr-FR') }}
           </div>
         </div>
       </div>

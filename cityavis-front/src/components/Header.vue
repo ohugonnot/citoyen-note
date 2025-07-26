@@ -190,7 +190,7 @@ const userInitials = computed(() => {
 })
 
 const displayName = computed(() => {
-  return auth.user?.name || auth.user?.email?.split('@')[0] || 'Citoyen'
+  return auth.user?.pseudo || auth.user?.email?.split('@')[0] || 'Citoyen'
 })
 
 const userRole = computed(() => {

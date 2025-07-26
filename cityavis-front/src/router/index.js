@@ -40,6 +40,27 @@ const routes = [
       description: 'Gérez votre profil citoyen'
     }
   },
+  {
+    path: '/admin/users',
+    name: 'AdminUsers',
+    component: () => import('@/views/UsersList.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Gestion Utilisateurs - CitoyenNote'
+    }
+  },
+  {
+    path: '/admin/users/:id/edit',
+    name: 'AdminUserEdit',
+    component: () => import('@/views/AdminUserEdit.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Modifier Utilisateur - CitoyenNote',
+      description: 'Modifier les informations d’un utilisateur'
+    }
+  },
   /*
   {
     path: '/mes-evaluations',
@@ -93,16 +114,7 @@ const routes = [
       description: 'Tableau de bord administrateur'
     }
   },
-  {
-    path: '/admin/users',
-    name: 'AdminUsers',
-    component: () => import('@/views/admin/Users.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Gestion Utilisateurs - CitoyenNote'
-    }
-  },
+
   {
     path: '/admin/services',
     name: 'AdminServices',

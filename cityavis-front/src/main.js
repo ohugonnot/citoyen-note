@@ -21,8 +21,23 @@ L.Icon.Default.mergeOptions({
   shadowUrl: '/images/leaflet/marker-shadow.png',
 })
 
-// 👇 Tout ce qui suit est déplacé dans une IIFE
-;(async () => {
+import PrimeVue from 'primevue/config';
+import 'primeicons/primeicons.css'
+import Aura from '@primeuix/themes/aura'
+
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
+import Message from 'primevue/message'
+import Tag from 'primevue/tag'
+import DatePicker from 'primevue/datepicker'
+import MultiSelect from 'primevue/multiselect'
+import InputNumber from 'primevue/inputnumber'
+import Checkbox from 'primevue/checkbox'
+import Select from 'primevue/select'
+
+(async () => {
   const app = createApp(App)
   const pinia = createPinia()
   app.use(pinia)
@@ -60,5 +75,21 @@ L.Icon.Default.mergeOptions({
   }
 
   app.use(router)
+  app.use(PrimeVue, {
+    theme: {
+      preset: Aura
+    }
+  })
+  app.component('DataTable', DataTable)
+  app.component('Column', Column)
+  app.component('Button', Button)
+  app.component('Dialog', Dialog)
+  app.component('Message', Message)
+  app.component('Tag', Tag)
+  app.component('DatePicker',DatePicker)
+  app.component('MultiSelect',MultiSelect)
+  app.component('InputNumber',InputNumber)
+  app.component('Checkbox',Checkbox)
+  app.component('Select',Select)
   app.mount('#app')
 })()
