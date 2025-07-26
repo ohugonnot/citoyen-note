@@ -104,7 +104,7 @@
                 </li>
                 <li>
                   <router-link
-                    class="dropdown-item d-flex align-items-center gap-2"
+                    class="dropdown-item d-flex align-items-center gap-2 pl-4"
                     to="/admin/users"
                   >
                     <i class="bi bi-people"></i>
@@ -113,7 +113,7 @@
                 </li>
                 <li>
                   <router-link
-                    class="dropdown-item d-flex align-items-center gap-2"
+                    class="dropdown-item d-flex align-items-center gap-2 pl-4"
                     to="/admin/services"
                   >
                     <i class="bi bi-building"></i>
@@ -122,7 +122,7 @@
                 </li>
                 <li>
                   <router-link
-                    class="dropdown-item d-flex align-items-center gap-2"
+                    class="dropdown-item d-flex align-items-center gap-2 pl-4"
                     to="/admin/analytics"
                   >
                     <i class="bi bi-graph-up"></i>
@@ -328,12 +328,10 @@ header {
 }
 
 .user-badge {
-  display: inline-block;
   background: var(--color-gray-light);
   color: var(--color-primary);
   font-size: 0.65rem;
   font-weight: 500;
-  padding: 0.15rem 0.5rem;
   border-radius: 12px;
   margin-top: 0.25rem;
   text-transform: uppercase;
@@ -350,7 +348,7 @@ header {
 }
 
 .dropdown-item {
-  padding: 0.75rem 1.25rem;
+  padding: 0.25rem 1.25rem;
   border-radius: 0;
   transition: var(--transition-fast);
   font-size: 0.875rem;
@@ -406,5 +404,9 @@ header {
   .dropdown-header {
     padding: 0.75rem 1rem 0.5rem;
   }
+}
+
+.pl-4{
+  padding-left: 2.5rem;
 }
 </style>
