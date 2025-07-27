@@ -8,8 +8,8 @@
     :dismissableMask="false"
     :draggable="false"
     class="create-user-modal"
-    :style="{ width: '90vw', maxWidth: '800px' }"
-    :breakpoints="{ '960px': '95vw', '640px': '100vw' }"
+  :style="{ width: '90vw', maxWidth: '800px' }"
+  :breakpoints="{ '960px': '95vw', '640px': '100vw' }"
   >
     <template #header>
       <div class="d-flex align-items-center">
@@ -586,8 +586,18 @@ watch(() => props.visible, (newVal) => {
 </script>
 
 <style scoped>
-.create-user-modal {
-  font-family: inherit;
+/* Force le mode clair sur tous les éléments */
+.create-user-modal,
+.create-user-content,
+.section-card,
+.modal-icon,
+.section-header,
+:deep(.p-dialog),
+:deep(.p-dialog-header),
+:deep(.p-dialog-content),
+:deep(.p-dialog-footer) {
+  background-color: white !important;
+  color: #212529 !important;
 }
 
 .modal-icon {
@@ -598,7 +608,7 @@ watch(() => props.visible, (newVal) => {
 }
 
 .section-card {
-  background: #f8f9fa;
+  background: #f8f9fa !important;
   border: 1px solid #e9ecef;
   border-radius: 12px;
   padding: 1.5rem;
@@ -615,43 +625,94 @@ watch(() => props.visible, (newVal) => {
   padding-bottom: 0.75rem;
 }
 
+.section-header h5 {
+  color: #212529 !important;
+}
+
+/* Force les labels et textes en noir */
+.form-label,
+.form-check-label,
+.form-text,
+.text-muted,
+.text-dark,
+small {
+  color: #212529 !important;
+}
+
+.text-muted,
+.form-text small {
+  color: #6c757d !important;
+}
+
+/* Force les inputs en blanc */
+.form-control,
+.form-select,
+:deep(.p-multiselect),
+:deep(.p-multiselect .p-multiselect-label),
+:deep(.p-multiselect-panel),
+:deep(.p-multiselect-item) {
+  background-color: white !important;
+  color: #212529 !important;
+  border: 1px solid #ced4da !important;
+}
+
 .form-control,
 .form-select {
   border-radius: 8px;
-  border: 1px solid #ced4da;
   transition: all 0.15s ease-in-out;
 }
 
 .form-control:focus,
-.form-select:focus {
-  border-color: #86b7fe;
-  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+.form-select:focus,
+:deep(.p-multiselect.p-focus) {
+  border-color: #86b7fe !important;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+  background-color: white !important;
+  color: #212529 !important;
 }
 
 .form-control.is-invalid,
-.form-select.is-invalid {
-  border-color: #dc3545;
+.form-select.is-invalid,
+:deep(.p-multiselect.p-invalid) {
+  border-color: #dc3545 !important;
   box-shadow: none;
 }
 
 .form-control.is-invalid:focus,
-.form-select.is-invalid:focus {
-  border-color: #dc3545;
-  box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+.form-select.is-invalid:focus,
+:deep(.p-multiselect.p-invalid.p-focus) {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25) !important;
 }
 
+/* Force les checkbox et switch */
 .form-check-input {
   border-radius: 6px;
+  background-color: white !important;
+  border-color: #ced4da !important;
 }
 
 .form-check-input:focus {
-  border-color: #86b7fe;
+  border-color: #86b7fe !important;
   outline: 0;
-  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+}
+
+.form-check-input:checked {
+  background-color: #0d6efd !important;
+  border-color: #0d6efd !important;
 }
 
 .input-group .btn {
   border-radius: 0 8px 8px 0;
+  background-color: white !important;
+  border-color: #ced4da !important;
+  color: #212529 !important;
+}
+
+.input-group .btn:hover {
+  background-color: #f8f9fa !important;
+  color: #212529 !important;
 }
 
 .badge {
@@ -686,8 +747,99 @@ watch(() => props.visible, (newVal) => {
   transform: translateY(0);
 }
 
-/* Responsive */
-@media (max-width: 768px) {
+/* Mobile - plein écran */
+@media (max-width: 640px) {
+  :deep(.p-dialog.create-user-modal) {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    position: fixed !important;
+  }
+
+  :deep(.p-dialog .p-dialog-content) {
+    height: calc(100vh - 140px) !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    padding: 1rem !important;
+  }
+
+  :deep(.p-dialog .p-dialog-header) {
+    padding: 1rem !important;
+    border-radius: 0 !important;
+  }
+
+  :deep(.p-dialog .p-dialog-footer) {
+    padding: 1rem !important;
+    border-radius: 0 !important;
+  }
+
+  .create-user-content {
+    padding: 0;
+  }
+
+  .section-card {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+  }
+
+  .modal-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .section-header h5 {
+    font-size: 1rem;
+  }
+
+  /* Footer sur mobile */
+  :deep(.p-dialog .p-dialog-footer) {
+    flex-direction: column !important;
+    gap: 0.5rem;
+  }
+
+  :deep(.p-dialog .p-dialog-footer .d-flex) {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  :deep(.p-dialog .p-dialog-footer .d-flex:last-child) {
+    flex-direction: row;
+    justify-content: stretch;
+  }
+
+  :deep(.p-dialog .p-dialog-footer .d-flex:last-child .p-button) {
+    flex: 1;
+  }
+}
+
+/* Très petits écrans */
+@media (max-width: 480px) {
+  :deep(.p-dialog .p-dialog-header) {
+    padding: 0.75rem !important;
+  }
+
+  :deep(.p-dialog .p-dialog-content) {
+    padding: 0.75rem !important;
+    height: calc(100vh - 120px) !important;
+  }
+
+  :deep(.p-dialog .p-dialog-footer) {
+    padding: 0.75rem !important;
+  }
+
+  .section-card {
+    padding: 0.75rem;
+  }
+}
+
+/* Responsive tablette */
+@media (min-width: 641px) and (max-width: 768px) {
   .create-user-content {
     padding: 0;
   }
@@ -707,40 +859,30 @@ watch(() => props.visible, (newVal) => {
   }
 }
 
-/* PrimeVue overrides */
+/* PrimeVue overrides avec force */
 :deep(.p-dialog .p-dialog-header) {
-  border-bottom: 1px solid #e9ecef;
-  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-bottom: 1px solid #e9ecef !important;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%) !important;
+  color: #212529 !important;
 }
 
 :deep(.p-dialog .p-dialog-content) {
   padding: 1.5rem;
   max-height: 70vh;
   overflow-y: auto;
+  background-color: white !important;
+  color: #212529 !important;
 }
 
 :deep(.p-dialog .p-dialog-footer) {
-  border-top: 1px solid #e9ecef;
-  background-color: #f8f9fa;
+  border-top: 1px solid #e9ecef !important;
+  background-color: #f8f9fa !important;
   padding: 1rem 1.5rem;
+  color: #212529 !important;
 }
 
 :deep(.p-multiselect) {
   border-radius: 8px;
-}
-
-:deep(.p-multiselect.p-focus) {
-  border-color: #86b7fe;
-  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-}
-
-:deep(.p-multiselect.p-invalid) {
-  border-color: #dc3545;
-}
-
-:deep(.p-multiselect.p-invalid.p-focus) {
-  border-color: #dc3545;
-  box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
 }
 
 :deep(.p-button) {
@@ -753,4 +895,80 @@ watch(() => props.visible, (newVal) => {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
+/* Force les panels des dropdowns */
+:deep(.p-multiselect-panel) {
+  background-color: white !important;
+  border: 1px solid #ced4da !important;
+}
+
+:deep(.p-multiselect-item) {
+  color: #212529 !important;
+}
+
+:deep(.p-multiselect-item:hover) {
+  background-color: #f8f9fa !important;
+  color: #212529 !important;
+}
+</style>
+
+
+<style>
+@media (max-width: 640px) {
+  .p-dialog.create-user-modal {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    position: fixed !important;
+    border: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .p-dialog.create-user-modal .p-dialog-content {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    padding: 1rem !important;
+  }
+
+  .p-dialog.create-user-modal .p-dialog-footer {
+    flex-shrink: 0 !important;
+    padding: 1rem !important;
+    border-top: 1px solid #ced4da !important;
+  }
+
+  /* Footer responsive */
+  .p-dialog.create-user-modal .p-dialog-footer .d-flex.justify-content-between {
+    flex-direction: column !important;
+    gap: 1rem !important;
+    align-items: center !important;
+  }
+
+  .p-dialog.create-user-modal .p-dialog-footer .text-muted {
+    text-align: center !important;
+    order: 1 !important;
+  }
+
+  .p-dialog.create-user-modal .p-dialog-footer .d-flex.gap-2 {
+    order: 0 !important;
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Texte plus court pour le bouton */
+  .p-dialog.create-user-modal .p-dialog-footer .p-button-success .p-button-label {
+    display: none !important;
+  }
+
+  .p-dialog.create-user-modal .p-dialog-footer .p-button-success::after {
+    content: "Créer" !important;
+  }
+}
+
 </style>

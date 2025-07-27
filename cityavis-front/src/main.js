@@ -108,7 +108,12 @@ const components = {
 
   app.use(router)
   app.use(PrimeVue, {
-    theme: { preset: Aura }
+    theme: {
+      preset: Aura,
+      options: {
+        darkModeSelector: 'never' // Désactive complètement le dark mode
+      }
+    },
   })
   app.use(ToastService)
   Object.entries(components).forEach(([name, component]) => {

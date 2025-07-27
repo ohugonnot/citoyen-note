@@ -448,16 +448,68 @@ const submitForm = async () => {
 </script>
 
 <style scoped>
+/* Force le fond blanc sur tous les éléments */
+.container,
+.field-group,
+:deep(.p-card),
+:deep(.p-card-content),
+:deep(.p-inputtext),
+:deep(.p-dropdown),
+:deep(.p-multiselect),
+:deep(.p-calendar),
+:deep(.p-inputnumber-input),
+:deep(.p-dialog),
+:deep(.p-dialog-content) {
+  background-color: white !important;
+  color: #212529 !important;
+}
+
+/* Styles des groupes de champs */
 .field-group {
-  background-color: var(--bs-light, #f8f9fa);
+  background-color: #f8f9fa !important;
   border-radius: 0.375rem;
   padding: 1.5rem;
-  border-left: 4px solid var(--bs-primary, #0d6efd);
+  border-left: 4px solid #0d6efd;
 }
 
 .field-group h3 {
   margin-top: 0;
-  color: var(--bs-primary, #0d6efd);
+  color: #0d6efd !important;
+}
+
+/* Labels et textes */
+.form-label,
+.form-text,
+.text-muted {
+  color: #6c757d !important;
+}
+
+/* Force les inputs PrimeVue en blanc */
+:deep(.p-inputtext:enabled:focus),
+:deep(.p-dropdown:not(.p-disabled):hover),
+:deep(.p-dropdown:not(.p-disabled).p-focus),
+:deep(.p-multiselect:not(.p-disabled):hover),
+:deep(.p-multiselect:not(.p-disabled).p-focus) {
+  background-color: white !important;
+  color: #212529 !important;
+}
+
+/* Corrections pour les options des dropdowns */
+:deep(.p-dropdown-panel),
+:deep(.p-multiselect-panel) {
+  background-color: white !important;
+}
+
+:deep(.p-dropdown-item),
+:deep(.p-multiselect-item) {
+  background-color: white !important;
+  color: #212529 !important;
+}
+
+:deep(.p-dropdown-item:hover),
+:deep(.p-multiselect-item:hover) {
+  background-color: #f8f9fa !important;
+  color: #212529 !important;
 }
 
 .gap-2 {
