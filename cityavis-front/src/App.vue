@@ -78,4 +78,8 @@ onMounted(async () => {
   opacity: 0;
   transform: translateY(-20px);
 }
+
+.container {
+  background-color: white !important;
+}
 </style>

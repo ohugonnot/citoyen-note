@@ -1530,6 +1530,7 @@ onMounted(async () => {
 }
 
 /* Force le fond blanc sur tous les éléments */
+.container-fluid,
 .card,
 .user-card,
 .mobile-users-list,
