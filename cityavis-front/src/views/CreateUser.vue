@@ -589,9 +589,7 @@ watch(() => props.visible, (newVal) => {
 /* Force le mode clair sur tous les éléments */
 .create-user-modal,
 .create-user-content,
-.section-card,
 .modal-icon,
-.section-header,
 :deep(.p-dialog),
 :deep(.p-dialog-header),
 :deep(.p-dialog-content),
