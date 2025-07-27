@@ -1,5 +1,5 @@
 <template>
-  <div class="container py-5">
+  <div class="container">
     <div class="row justify-content-center">
       <div class="col-lg-8 col-xl-6">
         <div class="card shadow-lg border-0">
@@ -84,17 +84,21 @@
 
                 <div class="info-item mb-3">
                   <label class="form-label text-muted small fw-bold text-uppercase">Email</label>
-                  <div class="d-flex align-items-center">
-                    <i class="bi bi-envelope me-2 text-primary"></i>
-                    <span class="fs-6">{{ user.email }}</span>
-                    <span v-if="!user.isVerified" class="badge bg-warning ms-2">
-                      <i class="bi bi-exclamation-triangle me-1"></i>
-                      Non vérifié
-                    </span>
-                    <span v-else class="badge bg-success ms-2">
-                      <i class="bi bi-check-circle me-1"></i>
-                      Vérifié
-                    </span>
+                  <div class="d-flex align-items-start flex-column flex-sm-row">
+                    <div class="d-flex align-items-center mb-1 mb-sm-0 me-sm-2">
+                      <i class="bi bi-envelope me-2 text-primary"></i>
+                      <span class="fs-6">{{ user.email }}</span>
+                    </div>
+                    <div>
+                      <span v-if="!user.isVerified" class="badge bg-warning">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Non vérifié
+                      </span>
+                                      <span v-else class="badge bg-success">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Vérifié
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -421,7 +425,6 @@ const getAge = (dateNaissance) => {
 }
 
 .container {
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
   min-height: 100vh;
   padding-top: 3rem;
   padding-bottom: 3rem;
@@ -435,7 +438,7 @@ const getAge = (dateNaissance) => {
 
 @media (max-width: 768px) {
   .container {
-    padding: 1rem;
+    padding: 0 0.5rem;
   }
 
   .card-body {

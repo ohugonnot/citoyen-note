@@ -9,14 +9,8 @@
             <Button
               icon="pi pi-plus"
               label="Nouvel utilisateur"
-              class="p-button-success d-none d-md-inline-flex"
+              class="p-button-success d-md-inline-flex"
               @click="createUser"
-            />
-            <Button
-              icon="pi pi-plus"
-              class="p-button-success p-button-rounded d-md-none"
-              @click="createUser"
-              title="Nouvel utilisateur"
             />
           </div>
 
@@ -161,50 +155,52 @@
 
       <!-- Filtres avancés (collapsible) -->
       <Transition name="slide-down">
-        <div v-show="showFilters" class="row g-3 pt-3 border-top">
-          <div class="col-md-4 col-sm-6">
-            <label class="form-label fw-semibold text-dark">
-              <i class="pi pi-users me-1"></i>
-              Rôle
-            </label>
-            <select
-              v-model="filters.role"
-              @change="() => { pagination.page = 1; fetchUsers(); }"
-              class="form-select"
-            >
-              <option value="">Tous les rôles</option>
-              <option v-for="role in roleOptions" :key="role.value" :value="role.value">
-                {{ role.label }}
-              </option>
-            </select>
-          </div>
+        <div v-show="showFilters" class="filters-container">
+          <div class="row g-3">
+            <div class="col-md-4 col-sm-6">
+              <label class="form-label fw-semibold text-dark">
+                <i class="pi pi-users me-1"></i>
+                Rôle
+              </label>
+              <select
+                v-model="filters.role"
+                @change="() => { pagination.page = 1; fetchUsers(); }"
+                class="form-select"
+              >
+                <option value="">Tous les rôles</option>
+                <option v-for="role in roleOptions" :key="role.value" :value="role.value">
+                  {{ role.label }}
+                </option>
+              </select>
+            </div>
 
-          <div class="col-md-4 col-sm-6">
-            <label class="form-label fw-semibold text-dark">
-              <i class="pi pi-circle me-1"></i>
-              Statut
-            </label>
-            <select
-              v-model="filters.statut"
-              @change="() => { pagination.page = 1; fetchUsers(); }"
-              class="form-select"
-            >
-              <option value="">Tous les statuts</option>
-              <option v-for="statut in statutOptions" :key="statut.value" :value="statut.value">
-                {{ statut.label }}
-              </option>
-            </select>
-          </div>
+            <div class="col-md-4 col-sm-6">
+              <label class="form-label fw-semibold text-dark">
+                <i class="pi pi-flag me-1"></i>
+                Statut
+              </label>
+              <select
+                v-model="filters.statut"
+                @change="() => { pagination.page = 1; fetchUsers(); }"
+                class="form-select"
+              >
+                <option value="">Tous les statuts</option>
+                <option v-for="statut in statutOptions" :key="statut.value" :value="statut.value">
+                  {{ statut.label }}
+                </option>
+              </select>
+            </div>
 
-          <div class="col-md-4 col-sm-12 d-flex align-items-end">
-            <button
-              type="button"
-              class="btn btn-outline-warning me-2"
-              @click="resetFilters"
-            >
-              <i class="pi pi-refresh me-1"></i>
-              Réinitialiser
-            </button>
+            <div class="col-md-4 col-sm-12 d-flex align-items-end">
+              <button
+                type="button"
+                class="btn btn-outline-warning me-2"
+                @click="resetFilters"
+              >
+                <i class="pi pi-refresh me-1"></i>
+                Réinitialiser
+              </button>
+            </div>
           </div>
         </div>
       </Transition>
@@ -427,57 +423,52 @@
                       <span class="badge bg-secondary small">#{{ user.id }}</span>
                     </div>
 
-                    <!-- Métadonnées -->
-                    <div class="row g-2 small mb-3">
-                      <div class="col-auto">
-                        <span :class="getStatutBadgeClass(user.statut)" class="badge badge-sm">
-                          <i :class="getStatutIcon(user.statut)" class="me-1"></i>
-                          {{ getStatutLabel(user.statut) }}
-                        </span>
+                    <!-- Métadonnées et Actions (responsive) -->
+                    <div class="user-meta-actions">
+                      <div class="user-metadata">
+                        <div class="d-flex flex-wrap gap-2 small mb-3 mb-md-0">
+                <span :class="getStatutBadgeClass(user.statut)" class="badge badge-sm">
+                  <i :class="getStatutIcon(user.statut)" class="me-1"></i>
+                  {{ getStatutLabel(user.statut) }}
+                </span>
+                <span
+                  v-if="user.roles?.length"
+                  v-for="role in user.roles.slice(0, 1)"
+                  :key="role"
+                  :class="getRoleBadgeClass(role)"
+                  class="badge badge-sm"
+                >
+                  {{ getRoleLabel(role) }}
+                </span>
+                          <span v-if="user.scoreFiabilite !== null" class="text-muted">
+                  <i class="pi pi-star-fill me-1"></i>
+                  {{ user.scoreFiabilite }}%
+                </span>
+                        </div>
                       </div>
-                      <div class="col-auto" v-if="user.roles?.length">
-                        <span
-                          v-for="role in user.roles.slice(0, 1)"
-                          :key="role"
-                          :class="getRoleBadgeClass(role)"
-                          class="badge badge-sm"
-                        >
-                          {{ getRoleLabel(role) }}
-                        </span>
-                      </div>
-                      <div class="col-auto" v-if="user.scoreFiabilite !== null">
-                        <span class="text-muted">
-                          <i class="pi pi-star-fill me-1"></i>
-                          {{ user.scoreFiabilite }}%
-                        </span>
-                      </div>
-                    </div>
 
-                    <!-- Actions -->
-                    <div class="d-flex gap-2">
-                      <Button
-                        icon="pi pi-eye"
-                        label="Voir"
-                        class="p-button-sm p-button-outlined p-button-secondary flex-fill"
-                        @click="viewUser(user)"
-                      />
-                      <Button
-                        icon="pi pi-pencil"
-                        label="Modifier"
-                        class="p-button-sm p-button-primary flex-fill"
-                        @click="editUser(user)"
-                      />
-                      <Button
-                        icon="pi pi-trash"
-                        class="p-button-sm p-button-danger p-button-rounded"
-                        @click="confirmDelete(user)"
-                      />
+                      <!-- Actions -->
+                      <div class="user-actions">
+                        <div class="d-flex gap-2">
+                          <Button
+                            icon="pi pi-pencil"
+                            class="p-button-sm p-button-primary p-button-rounded"
+                            @click="editUser(user)"
+                          />
+                          <Button
+                            icon="pi pi-trash"
+                            class="p-button-sm p-button-danger p-button-rounded"
+                            @click="confirmDelete(user)"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+
         </div>
 
         <!-- Pagination responsive -->
@@ -1037,6 +1028,7 @@ onMounted(async () => {
 /* Conteneur principal */
 .container-fluid {
   max-width: 1400px;
+  background-color: white;
 }
 
 /* Cartes de statistiques */
@@ -1044,6 +1036,7 @@ onMounted(async () => {
   transition: var(--transition);
   border: none;
   box-shadow: var(--box-shadow);
+  background-color: white;
 }
 
 .stats-card:hover {
@@ -1056,6 +1049,7 @@ onMounted(async () => {
   position: sticky;
   top: 0;
   z-index: 10;
+  background-color: white;
 }
 
 /* Avatars */
@@ -1094,11 +1088,13 @@ onMounted(async () => {
 .mobile-users-list {
   max-height: 70vh;
   overflow-y: auto;
+  background-color: white;
 }
 
 .user-card {
   transition: var(--transition);
   cursor: pointer;
+  background-color: white;
 }
 
 .user-card:hover {
@@ -1162,6 +1158,7 @@ onMounted(async () => {
   border: none;
   border-radius: var(--border-radius);
   box-shadow: var(--box-shadow);
+  background-color: white;
 }
 
 .card:hover {
@@ -1181,6 +1178,7 @@ onMounted(async () => {
 :deep(.p-datatable) {
   border-radius: var(--border-radius);
   overflow: hidden;
+  background-color: white;
 }
 
 :deep(.p-datatable .p-datatable-thead > tr > th) {
@@ -1195,6 +1193,7 @@ onMounted(async () => {
 :deep(.p-datatable .p-datatable-tbody > tr) {
   transition: var(--transition);
   border-bottom: 1px solid #f1f3f4;
+  background-color: white;
 }
 
 :deep(.p-datatable .p-datatable-tbody > tr:hover) {
@@ -1204,6 +1203,7 @@ onMounted(async () => {
 :deep(.p-datatable .p-datatable-tbody > tr > td) {
   padding: 1rem 0.75rem;
   vertical-align: middle;
+  background-color: inherit;
 }
 
 :deep(.p-datatable .p-selection-column .p-checkbox) {
@@ -1211,7 +1211,7 @@ onMounted(async () => {
 }
 
 :deep(.p-paginator) {
-  background: transparent;
+  background: white;
   border: none;
   padding: 0.5rem 0;
 }
@@ -1234,15 +1234,18 @@ onMounted(async () => {
 :deep(.p-dialog) {
   border-radius: var(--border-radius);
   overflow: hidden;
+  background-color: white;
 }
 
 :deep(.p-dialog .p-dialog-header) {
   border-bottom: 1px solid #e9ecef;
   padding: 1.5rem;
+  background-color: white;
 }
 
 :deep(.p-dialog .p-dialog-content) {
   padding: 1.5rem;
+  background-color: white;
 }
 
 :deep(.p-dialog .p-dialog-footer) {
@@ -1258,6 +1261,7 @@ onMounted(async () => {
 :deep(.p-inputtext) {
   border-radius: var(--border-radius);
   transition: var(--transition);
+  background-color: white;
 }
 
 :deep(.p-inputtext:focus) {
@@ -1266,6 +1270,15 @@ onMounted(async () => {
 
 :deep(.p-dropdown) {
   border-radius: var(--border-radius);
+  background-color: white;
+}
+
+:deep(.p-dropdown-panel) {
+  background-color: white;
+}
+
+:deep(.p-dropdown-item) {
+  background-color: white;
 }
 
 :deep(.p-progressspinner) {
@@ -1278,24 +1291,29 @@ onMounted(async () => {
   .container-fluid {
     padding-left: 1rem;
     padding-right: 1rem;
+    background-color: white;
   }
 
   .stats-card {
     padding: 0.75rem !important;
+    background-color: white;
   }
 
   .card-body {
     padding: 1rem !important;
+    background-color: white;
   }
 
   .user-card {
     padding: 1rem !important;
+    background-color: white;
   }
 }
 
 @media (min-width: 576px) and (max-width: 767.98px) {
   .stats-card {
     padding: 1rem !important;
+    background-color: white;
   }
 }
 
@@ -1316,25 +1334,7 @@ onMounted(async () => {
   }
 }
 
-/* Mode sombre (optionnel) */
-@media (prefers-color-scheme: dark) {
-  .bg-light {
-    background-color: #1a1a1a !important;
-  }
-
-  .text-dark {
-    color: #ffffff !important;
-  }
-
-  .card {
-    background-color: #2d2d2d;
-    color: #ffffff;
-  }
-
-  .text-muted {
-    color: #adb5bd !important;
-  }
-}
+/* SUPPRIMÉ : Section mode sombre qui causait le problème */
 
 /* Classes utilitaires supplémentaires */
 .text-truncate-2 {
@@ -1370,12 +1370,17 @@ onMounted(async () => {
   border-color: #86b7fe;
   outline: 0;
   box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  background-color: white;
 }
 
 /* Désactiver l'autocomplétion visuelle */
 .form-control:-webkit-autofill {
   -webkit-box-shadow: 0 0 0 1000px white inset !important;
   -webkit-text-fill-color: #212529 !important;
+}
+
+.form-control {
+  background-color: white;
 }
 
 /* Amélioration du bouton d'actualisation avec animation */
@@ -1398,7 +1403,7 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px; /* Taille minimum pour touch */
+  min-width: 44px;
 }
 
 /* Animation pour les filtres */
@@ -1431,6 +1436,7 @@ onMounted(async () => {
 .alert {
   border-radius: 8px;
   border: none;
+  background-color: rgba(13, 202, 240, 0.1);
 }
 
 .alert-info {
@@ -1443,10 +1449,12 @@ onMounted(async () => {
   border-radius: 8px;
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
   border: 1px solid rgba(0, 0, 0, 0.1);
+  background-color: white;
 }
 
 .dropdown-item {
   transition: all 0.15s ease-in-out;
+  background-color: white;
 }
 
 .dropdown-item:hover {
@@ -1509,4 +1517,91 @@ onMounted(async () => {
   border-color: #0d6efd;
   color: white;
 }
+
+.tablet-actions-container {
+  justify-content: flex-start;
+}
+
+/* Alignement pour tablettes */
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .tablet-actions-container {
+    justify-content: flex-end;
+  }
+}
+
+/* Force le fond blanc sur tous les éléments */
+.container-fluid,
+.card,
+.user-card,
+.mobile-users-list,
+.form-control {
+  background-color: white !important;
+}
+
+.filters-container {
+  padding: 1rem 0 1rem 0;
+  border-top: 1px solid #e9ecef;
+  background-color: white;
+}
+
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s ease-in-out;
+  overflow: hidden;
+}
+
+.slide-down-enter-from {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.slide-down-leave-to {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.slide-down-enter-to,
+.slide-down-leave-from {
+  opacity: 1;
+  max-height: 150px;
+}
+
+.user-meta-actions {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-metadata {
+  flex-grow: 1;
+}
+
+.user-actions {
+  margin-top: 0.75rem;
+}
+
+/* Tablette : actions à droite des métadonnées */
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .user-meta-actions {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .user-actions {
+    margin-top: 0;
+    margin-left: 1rem;
+  }
+}
+
+/* Mobile : garder en colonne */
+@media (max-width: 767.98px) {
+  .user-meta-actions {
+    flex-direction: column;
+  }
+}
+
 </style>

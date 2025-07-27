@@ -252,3 +252,68 @@ body {
     text-align: center !important;
   }
 }
+
+
+* {
+  color-scheme: light !important;
+}
+
+/* Conteneurs principaux */
+html,
+body,
+#app {
+  background-color: white !important;
+  color: #212529 !important;
+}
+
+/* Composants à fond blanc seulement */
+.p-dialog,
+.p-card,
+.p-card-content,
+.p-inputtext,
+.p-dropdown,
+.p-multiselect,
+.p-calendar,
+.p-datatable,
+.p-paginator,
+.p-panel,
+.p-accordion,
+.p-tabview {
+  background-color: white !important;
+  color: #212529 !important;
+}
+
+/* Inputs spécifiquement */
+.p-inputtext,
+.p-dropdown .p-dropdown-label,
+.p-multiselect .p-multiselect-label,
+.p-calendar input {
+  background-color: white !important;
+  color: #212529 !important;
+  border-color: #ced4da !important;
+}
+
+/* Panneaux de dropdown */
+.p-dropdown-panel,
+.p-multiselect-panel,
+.p-calendar-panel {
+  background-color: white !important;
+  border-color: #ced4da !important;
+}
+
+.p-dropdown-item,
+.p-multiselect-item,
+.p-calendar-cell {
+  color: #212529 !important;
+}
+
+/* Textes */
+.text-muted {
+  color: #6c757d !important;
+}
+
+/* Variables Bootstrap */
+:root {
+  --bs-body-bg: white !important;
+  --bs-body-color: #212529 !important;
+}

@@ -61,7 +61,7 @@ onMounted(async () => {
 }
 
 .main-content.with-header {
-  padding-top: 30px;
+  padding-top: 15px;
 }
 
 .page-enter-active,
