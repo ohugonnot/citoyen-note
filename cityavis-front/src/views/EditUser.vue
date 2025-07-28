@@ -67,13 +67,7 @@
             <div class="row">
               <div class="col-12 col-md-6 mb-3">
                 <label for="telephone" class="form-label fw-medium">Téléphone</label>
-                <InputText
-                  id="telephone"
-                  v-model="form.telephone"
-                  type="tel"
-                  class="w-100"
-                  placeholder="+33 1 23 45 67 89"
-                />
+                <InputText id="telephone" v-model="form.telephone" type="tel" class="w-100" />
               </div>
 
               <div class="col-12 col-md-6 mb-3">
@@ -99,20 +93,13 @@
                   v-model="form.codePostal"
                   type="text"
                   class="w-100"
-                  placeholder=""
                   maxlength="5"
                 />
               </div>
 
               <div class="col-12 col-md-9 mb-3">
                 <label for="ville" class="form-label fw-medium">Ville</label>
-                <InputText
-                  id="ville"
-                  v-model="form.ville"
-                  type="text"
-                  class="w-100"
-                  placeholder=""
-                />
+                <InputText id="ville" v-model="form.ville" type="text" class="w-100" />
               </div>
             </div>
           </div>

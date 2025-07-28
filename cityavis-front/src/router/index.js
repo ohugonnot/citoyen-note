@@ -7,8 +7,8 @@ const routes = [
     component: () => import('@/views/HomeView.vue'),
     meta: {
       title: 'Accueil - CitoyenNote',
-      description: 'Évaluez et améliorez vos services publics locaux'
-    }
+      description: 'Évaluez et améliorez vos services publics locaux',
+    },
   },
   {
     path: '/login',
@@ -17,8 +17,8 @@ const routes = [
     meta: {
       requiresGuest: true,
       title: 'Connexion - CitoyenNote',
-      description: 'Connectez-vous à votre espace citoyen'
-    }
+      description: 'Connectez-vous à votre espace citoyen',
+    },
   },
   {
     path: '/register',
@@ -27,8 +27,8 @@ const routes = [
     meta: {
       requiresGuest: true,
       title: 'Inscription - CitoyenNote',
-      description: 'Créez votre compte citoyen'
-    }
+      description: 'Créez votre compte citoyen',
+    },
   },
   {
     path: '/profile',
@@ -37,8 +37,8 @@ const routes = [
     meta: {
       requiresAuth: true,
       title: 'Mon Profil - CitoyenNote',
-      description: 'Gérez votre profil citoyen'
-    }
+      description: 'Gérez votre profil citoyen',
+    },
   },
   {
     path: '/admin/users',
@@ -47,8 +47,8 @@ const routes = [
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
-      title: 'Gestion Utilisateurs - CitoyenNote'
-    }
+      title: 'Gestion Utilisateurs - CitoyenNote',
+    },
   },
   {
     path: '/admin/users/:id/edit',
@@ -58,13 +58,33 @@ const routes = [
       requiresAuth: true,
       requiresAdmin: false,
       title: 'Modifier Utilisateur - CitoyenNote',
-      description: 'Modifier les informations d’un utilisateur'
-    }
+      description: 'Modifier les informations d’un utilisateur',
+    },
+  },
+  {
+    path: '/admin/services-publiques',
+    name: 'AdminServicesPubliques',
+    component: () => import('@/views/ServicesPublicsList.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Gestion des Services Publiques - CitoyenNote',
+    },
+  },
+  {
+    path: '/admin/services-publiques/create',
+    name: 'NewService',
+    component: () => import('@/views/CreateServicePublic.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Ajouter un Service Public - CitoyenNote',
+    },
   },
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
-    redirect: '/login'
+    redirect: '/login',
   },
   /*
   {
@@ -187,7 +207,7 @@ const router = createRouter({
       return { el: to.hash, behavior: 'smooth' }
     }
     return { top: 0, behavior: 'smooth' }
-  }
+  },
 })
 
 router.afterEach((to) => {

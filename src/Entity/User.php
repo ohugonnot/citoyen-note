@@ -3,8 +3,10 @@
 namespace App\Entity;
 
 use App\Entity\Traits\TimestampableTrait;
-use App\Enum\Statut;
+use App\Enum\StatutUser;
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -73,14 +75,25 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?int $scoreFiabilite = 0;
 
-    #[ORM\Column(enumType: Statut::class)]
-    private ?Statut $statut = Statut::ACTIF;
+    #[ORM\Column(enumType: StatutUser::class)]
+    private ?StatutUser $statut = StatutUser::ACTIF;
 
     // Ajout selon document
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTime $derniereConnexion = null;
 
-    // Vos méthodes existantes...
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: Evaluation::class)]
+    private Collection $evaluations;
+
+    public function __construct()
+    {
+        $this->evaluations = new ArrayCollection();
+    }
+
+    public function getEvaluations(): Collection
+    {
+        return $this->evaluations;
+    }
 
     public function getId(): ?int
     {
@@ -255,12 +268,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getStatut(): ?Statut
+    public function getStatut(): ?StatutUser
     {
         return $this->statut;
     }
 
-    public function setStatut(Statut $statut): static
+    public function setStatut(StatutUser $statut): static
     {
         $this->statut = $statut;
         return $this;

@@ -4,7 +4,7 @@ namespace App\Service;
 
 use App\Entity\User;
 use App\Dto\{CreateUserDto, UpdateUserDto};
-use App\Enum\Statut;
+use App\Enum\StatutUser;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -199,7 +199,7 @@ class UserService
         $hashedPassword = $this->passwordHasher->hashPassword($user, $plainPassword);
         $user->setPassword($hashedPassword);
         
-        $user->setStatut(Statut::ACTIF);
+        $user->setStatut(StatutUser::ACTIF);
     }
 
     private function applyCreateUserData(User $user, CreateUserDto $dto): void
@@ -280,7 +280,7 @@ class UserService
 
         // Statut
         if ($dto->statut) {
-            $statut = Statut::tryFrom($dto->statut);
+            $statut = StatutUser::tryFrom($dto->statut);
             if ($statut) {
                 $user->setStatut($statut);
             }

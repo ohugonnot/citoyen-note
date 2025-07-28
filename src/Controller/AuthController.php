@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Enum\Statut;
+use App\Enum\StatutUser;
 use App\Helper\UserJsonHelper;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
@@ -50,7 +51,7 @@ class AuthController extends AbstractController
             );
             $user->setIsVerified(false);
             $user->setRoles(['ROLE_USER']);
-            $user->setStatut(Statut::ACTIF);
+            $user->setStatut(StatutUser::ACTIF);
             $user->setScoreFiabilite(0);
             $user->setAccepteNewsletters($data['accepte_newsletters'] ?? false);
 

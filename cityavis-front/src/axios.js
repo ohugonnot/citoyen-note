@@ -1,13 +1,13 @@
 // src/axios.js
-import axios from 'axios';
-import { useAuthStore } from '@/stores/auth';
+import axios from 'axios'
+import { useAuthStore } from '@/stores/auth'
 
 /**
  * Configuration de l'instance Axios avec gestion automatique de l'authentification
  * et rafraîchissement des tokens
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:8000';
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:8000'
 
 // Instance axios configurée
 const apiClient = axios.create({
@@ -16,7 +16,7 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-});
+})
 
 // Instance séparée pour le refresh (sans intercepteurs)
 const refreshClient = axios.create({
@@ -25,13 +25,13 @@ const refreshClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-});
+})
 
 // État du rafraîchissement des tokens
 const tokenRefreshState = {
   isRefreshing: false,
   failedRequestsQueue: [],
-};
+}
 
 /**
  * Traite la queue des requêtes en attente après un rafraîchissement de token
@@ -41,14 +41,14 @@ const tokenRefreshState = {
 const processFailedRequestsQueue = (error = null, token = null) => {
   tokenRefreshState.failedRequestsQueue.forEach(({ resolve, reject }) => {
     if (error) {
-      reject(error);
+      reject(error)
     } else {
-      resolve(token);
+      resolve(token)
     }
-  });
+  })
 
-  tokenRefreshState.failedRequestsQueue = [];
-};
+  tokenRefreshState.failedRequestsQueue = []
+}
 
 /**
  * Ajoute une requête à la queue d'attente
@@ -56,8 +56,8 @@ const processFailedRequestsQueue = (error = null, token = null) => {
  * @param {Function} reject - Fonction de rejet
  */
 const addToFailedQueue = (resolve, reject) => {
-  tokenRefreshState.failedRequestsQueue.push({ resolve, reject });
-};
+  tokenRefreshState.failedRequestsQueue.push({ resolve, reject })
+}
 
 /**
  * Vérifie si une erreur est due à un token expiré
@@ -65,8 +65,8 @@ const addToFailedQueue = (resolve, reject) => {
  * @returns {boolean}
  */
 const isTokenExpiredError = (error) => {
-  return error.response?.status === 401;
-};
+  return error.response?.status === 401
+}
 
 /**
  * Vérifie si une requête peut être retentée
@@ -74,16 +74,16 @@ const isTokenExpiredError = (error) => {
  * @returns {boolean}
  */
 const canRetryRequest = (config) => {
-  return !config._isRetry;
-};
+  return !config._isRetry
+}
 
 /**
  * Marque une requête comme ayant été retentée
  * @param {Object} config - Configuration de la requête
  */
 const markRequestAsRetried = (config) => {
-  config._isRetry = true;
-};
+  config._isRetry = true
+}
 
 /**
  * Ajoute le token d'autorisation à la requête
@@ -91,31 +91,31 @@ const markRequestAsRetried = (config) => {
  * @param {string} token - Token d'accès
  */
 const addAuthorizationHeader = (config, token) => {
-  config.headers.Authorization = `Bearer ${token}`;
-};
+  config.headers.Authorization = `Bearer ${token}`
+}
 
 // Intercepteur de requête : ajoute automatiquement le token d'autorisation
 apiClient.interceptors.request.use(
   (config) => {
-    const authStore = useAuthStore();
+    const authStore = useAuthStore()
 
     if (authStore.accessToken) {
-      addAuthorizationHeader(config, authStore.accessToken);
+      addAuthorizationHeader(config, authStore.accessToken)
     }
 
-    return config;
+    return config
   },
   (error) => {
-    return Promise.reject(error);
-  }
-);
+    return Promise.reject(error)
+  },
+)
 
 // Intercepteur de réponse : gère le rafraîchissement automatique des tokens
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const authStore = useAuthStore();
-    const originalRequest = error.config;
+    const authStore = useAuthStore()
+    const originalRequest = error.config
 
     // Conditions pour ne pas tenter un rafraîchissement
     if (
@@ -123,75 +123,73 @@ apiClient.interceptors.response.use(
       !canRetryRequest(originalRequest) ||
       !authStore.refreshToken
     ) {
-      return Promise.reject(error);
+      return Promise.reject(error)
     }
 
-    markRequestAsRetried(originalRequest);
+    markRequestAsRetried(originalRequest)
 
     // Si un rafraîchissement est déjà en cours, ajouter à la queue
     if (tokenRefreshState.isRefreshing) {
       return new Promise((resolve, reject) => {
         addToFailedQueue(
           (newToken) => {
-            addAuthorizationHeader(originalRequest, newToken);
-            resolve(apiClient(originalRequest));
+            addAuthorizationHeader(originalRequest, newToken)
+            resolve(apiClient(originalRequest))
           },
           (refreshError) => {
-            reject(refreshError);
-          }
-        );
-      });
+            reject(refreshError)
+          },
+        )
+      })
     }
 
     // Démarrer le processus de rafraîchissement
-    tokenRefreshState.isRefreshing = true;
+    tokenRefreshState.isRefreshing = true
 
     try {
-      console.log('[Axios] Tentative de refresh du token...');
-      const refreshSuccess = await authStore.refreshTokenIfNeeded();
+      console.log('[Axios] Tentative de refresh du token...')
+      const refreshSuccess = await authStore.refreshTokenIfNeeded()
 
       if (!refreshSuccess) {
-        console.error('[Axios] Refresh token échoué, déconnexion forcée');
-        throw new Error('Token refresh failed');
+        console.error('[Axios] Refresh token échoué, déconnexion forcée')
+        throw new Error('Token refresh failed')
       }
 
-      const newAccessToken = authStore.accessToken;
-      console.log('[Axios] Refresh token réussi, relance des requêtes');
+      const newAccessToken = authStore.accessToken
+      console.log('[Axios] Refresh token réussi, relance des requêtes')
 
       // Traiter la queue avec le nouveau token
-      processFailedRequestsQueue(null, newAccessToken);
+      processFailedRequestsQueue(null, newAccessToken)
 
       // Relancer la requête originale avec le nouveau token
-      addAuthorizationHeader(originalRequest, newAccessToken);
-      return apiClient(originalRequest);
-
+      addAuthorizationHeader(originalRequest, newAccessToken)
+      return apiClient(originalRequest)
     } catch (refreshError) {
-      console.error('[Axios] Échec refresh token, déconnexion...', refreshError);
+      console.error('[Axios] Échec refresh token, déconnexion...', refreshError)
 
       // En cas d'échec, traiter la queue avec l'erreur
-      processFailedRequestsQueue(refreshError);
+      processFailedRequestsQueue(refreshError)
 
       // Déconnecter l'utilisateur en cas d'échec du refresh
-      console.log('[Axios] Déconnexion en cours...');
+      console.log('[Axios] Déconnexion en cours...')
       try {
-        await authStore.logout('/login', true);
-        console.log('[Axios] Déconnexion réussie');
+        await authStore.logout('/login', true)
+        console.log('[Axios] Déconnexion réussie')
       } catch (logoutError) {
-        console.error('[Axios] Erreur lors du logout:', logoutError);
+        console.error('[Axios] Erreur lors du logout:', logoutError)
         // Fallback : forcer le rechargement
-        console.log('[Axios] Fallback - rechargement forcé');
+        console.log('[Axios] Fallback - rechargement forcé')
         setTimeout(() => {
-          window.location.href = '/login';
-        }, 100);
+          window.location.href = '/login'
+        }, 100)
       }
 
-      return Promise.reject(refreshError);
-
+      return Promise.reject(refreshError)
     } finally {
-      tokenRefreshState.isRefreshing = false;
+      tokenRefreshState.isRefreshing = false
     }
-  }
-);
+  },
+)
 
-export default apiClient;
-export { refreshClient };
+export default apiClient
+export { refreshClient }

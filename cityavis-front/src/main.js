@@ -47,30 +47,38 @@ import Paginator from 'primevue/paginator'
 import Toast from 'primevue/toast'
 import ToastService from 'primevue/toastservice'
 import ProgressSpinner from 'primevue/progressspinner'
+import Rating from 'primevue/rating'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
+import Textarea from 'primevue/textarea'
 
 // Enregistrement automatique des composants
 const components = {
-    DataTable,
-    Column,
-    Button,
-    Dialog,
-    Message,
-    Tag,
-    DatePicker, // alias pour cohérence avec ton code
-    MultiSelect,
-    InputNumber,
-    Checkbox,
-    Select,      // alias également
-    InputGroup,
-    InputText,
-    Card,
-    Badge,
-    Avatar,
-    ProgressBar,
-    Paginator,
-    Toast,
-    ProgressSpinner,
-  }
+  DataTable,
+  Column,
+  Button,
+  Dialog,
+  Message,
+  Tag,
+  DatePicker, // alias pour cohérence avec ton code
+  MultiSelect,
+  InputNumber,
+  Checkbox,
+  Select, // alias également
+  InputGroup,
+  InputText,
+  Card,
+  Badge,
+  Avatar,
+  ProgressBar,
+  Paginator,
+  Toast,
+  ProgressSpinner,
+  Rating,
+  IconField,
+  InputIcon,
+  Textarea,
+}
 
 ;(async () => {
   const app = createApp(App)
@@ -111,8 +119,8 @@ const components = {
     theme: {
       preset: Aura,
       options: {
-        darkModeSelector: 'never' // Désactive complètement le dark mode
-      }
+        darkModeSelector: 'never', // Désactive complètement le dark mode
+      },
     },
   })
   app.use(ToastService)

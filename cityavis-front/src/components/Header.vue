@@ -19,10 +19,7 @@
             <i class="bi bi-person-plus"></i>
             <span class="d-none d-lg-inline">S'enregistrer</span>
           </button>
-          <button
-            class="btn btn-primary d-flex align-items-center gap-2"
-            @click="goLogin"
-          >
+          <button class="btn btn-primary d-flex align-items-center gap-2" @click="goLogin">
             <i class="bi bi-box-arrow-in-right"></i>
             <span class="d-none d-lg-inline">Connexion</span>
           </button>
@@ -62,13 +59,10 @@
                   </div>
                 </div>
               </li>
-              <li><hr class="dropdown-divider"></li>
+              <li><hr class="dropdown-divider" /></li>
 
               <li>
-                <router-link
-                  class="dropdown-item d-flex align-items-center gap-2"
-                  to="/profile"
-                >
+                <router-link class="dropdown-item d-flex align-items-center gap-2" to="/profile">
                   <i class="bi bi-person"></i>
                   Mon profil
                 </router-link>
@@ -85,17 +79,14 @@
               </li>
 
               <li>
-                <router-link
-                  class="dropdown-item d-flex align-items-center gap-2"
-                  to="/settings"
-                >
+                <router-link class="dropdown-item d-flex align-items-center gap-2" to="/settings">
                   <i class="bi bi-gear"></i>
                   Paramètres
                 </router-link>
               </li>
 
               <template v-if="isAdmin">
-                <li><hr class="dropdown-divider"></li>
+                <li><hr class="dropdown-divider" /></li>
                 <li>
                   <h6 class="dropdown-header admin-header">
                     <i class="bi bi-shield-check me-1"></i>
@@ -114,7 +105,7 @@
                 <li>
                   <router-link
                     class="dropdown-item d-flex align-items-center gap-2 pl-4"
-                    to="/admin/services"
+                    to="/admin/services-publiques"
                   >
                     <i class="bi bi-building"></i>
                     Gestion services
@@ -131,7 +122,7 @@
                 </li>
               </template>
 
-              <li><hr class="dropdown-divider"></li>
+              <li><hr class="dropdown-divider" /></li>
               <li>
                 <button
                   class="dropdown-item d-flex align-items-center gap-2 text-danger"
@@ -179,7 +170,7 @@ const userInitials = computed(() => {
   if (user.name) {
     return user.name
       .split(' ')
-      .map(n => n[0])
+      .map((n) => n[0])
       .join('')
       .toUpperCase()
       .slice(0, 2)
@@ -199,7 +190,7 @@ const userRole = computed(() => {
 })
 
 const isAdmin = computed(() => {
-  return auth.user?.roles.includes("ROLE_USER") || auth.user?.is_admin
+  return auth.user?.roles.includes('ROLE_USER') || auth.user?.is_admin
 })
 
 const goLogin = () => router.push('/login')
@@ -405,7 +396,7 @@ header {
   }
 }
 
-.pl-4{
+.pl-4 {
   padding-left: 2.5rem;
 }
 
@@ -515,8 +506,13 @@ header {
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
 }
 
 .user-info {
@@ -588,7 +584,11 @@ header {
   height: 0;
   border-radius: 50%;
   background: rgba(var(--color-primary-rgb), 0.2);
-  transition: width 0.4s, height 0.4s, top 0.4s, left 0.4s;
+  transition:
+    width 0.4s,
+    height 0.4s,
+    top 0.4s,
+    left 0.4s;
   transform: translate(-50%, -50%);
   z-index: 0;
 }
@@ -651,7 +651,7 @@ header {
 .admin-header:hover {
   color: var(--color-primary);
   transform: scale(1.02);
-  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .dropdown-divider {

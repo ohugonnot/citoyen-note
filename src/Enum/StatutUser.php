@@ -2,7 +2,7 @@
 
 namespace App\Enum;
 
-enum Statut: string
+enum StatutUser: string
 {
     case ACTIF = 'actif';
     case SUSPENDU = 'suspendu';

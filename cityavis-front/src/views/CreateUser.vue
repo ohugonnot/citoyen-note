@@ -46,7 +46,6 @@
                 v-model="formData.email"
                 class="form-control"
                 :class="{ 'is-invalid': errors.email }"
-                placeholder="exemple@email.com"
                 autocomplete="email"
                 required
               />
@@ -65,7 +64,6 @@
                 v-model="formData.pseudo"
                 class="form-control"
                 :class="{ 'is-invalid': errors.pseudo }"
-                placeholder="nom_utilisateur"
                 autocomplete="username"
               />
               <div v-if="errors.pseudo" class="invalid-feedback">
@@ -83,7 +81,6 @@
                 v-model="formData.prenom"
                 class="form-control"
                 :class="{ 'is-invalid': errors.prenom }"
-                placeholder="Prénom"
                 autocomplete="given-name"
               />
               <div v-if="errors.prenom" class="invalid-feedback">
@@ -101,7 +98,6 @@
                 v-model="formData.nom"
                 class="form-control"
                 :class="{ 'is-invalid': errors.nom }"
-                placeholder="Nom de famille"
                 autocomplete="family-name"
               />
               <div v-if="errors.nom" class="invalid-feedback">
@@ -130,7 +126,6 @@
                   v-model="formData.password"
                   class="form-control"
                   :class="{ 'is-invalid': errors.password }"
-                  placeholder=""
                   autocomplete="new-password"
                   required
                 />
@@ -165,7 +160,6 @@
                   v-model="formData.confirmPassword"
                   class="form-control"
                   :class="{ 'is-invalid': errors.confirmPassword }"
-                  placeholder=""
                   autocomplete="new-password"
                   required
                 />
@@ -273,7 +267,6 @@
                   v-model="formData.telephone"
                   class="form-control"
                   :class="{ 'is-invalid': errors.telephone }"
-                  placeholder="06.12.34.56.78"
                   autocomplete="tel"
                 />
                 <div v-if="errors.telephone" class="invalid-feedback">
@@ -308,7 +301,6 @@
                   v-model="formData.codePostal"
                   class="form-control"
                   :class="{ 'is-invalid': errors.codePostal }"
-                  placeholder=""
                   pattern="[0-9]{5}"
                   maxlength="5"
                   autocomplete="postal-code"
@@ -328,7 +320,6 @@
                   v-model="formData.ville"
                   class="form-control"
                   :class="{ 'is-invalid': errors.ville }"
-                  placeholder=""
                   autocomplete="address-level2"
                 />
                 <div v-if="errors.ville" class="invalid-feedback">
