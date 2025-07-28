@@ -3,9 +3,9 @@
 namespace App\Repository;
 
 use App\Entity\User;
+use App\Dto\UserFilterDto;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use Doctrine\ORM\QueryBuilder;
 
 /**
  * @extends ServiceEntityRepository<User>
@@ -17,111 +17,81 @@ class UserRepository extends ServiceEntityRepository
         parent::__construct($registry, User::class);
     }
 
-    /**
-     * Trouve les utilisateurs avec filtres, recherche et pagination
-     *
-     * @param array $filters
-     * @return array
-     */
-    public function findUsersWithFilters(array $filters): array
+    public function findUsersWithFilters(UserFilterDto $filters): array
     {
         $qb = $this->createQueryBuilder('u');
 
-        // Recherche textuelle
-        if (!empty($filters['search'])) {
-            $searchTerm = '%' . $filters['search'] . '%';
-            $qb->andWhere(
-                $qb->expr()->orX(
-                    $qb->expr()->like('u.email', ':search'),
-                    $qb->expr()->like('u.pseudo', ':search'),
-                    $qb->expr()->like('u.nom', ':search'),
-                    $qb->expr()->like('u.prenom', ':search'),
-                    $qb->expr()->like(
-                        $qb->expr()->concat('u.nom', $qb->expr()->concat($qb->expr()->literal(' '), 'u.prenom')),
-                        ':search'
-                    )
-                )
-            )->setParameter('search', $searchTerm);
+        // Recherche globale
+        if (!empty($filters->search)) {
+            $qb->andWhere('u.email LIKE :search OR u.pseudo LIKE :search OR u.nom LIKE :search OR u.prenom LIKE :search')
+               ->setParameter('search', '%' . $filters->search . '%');
         }
-
+        
         // Filtre par rôle
-        if (!empty($filters['role'])) {
+        if ($filters->role) {
             $qb->andWhere('u.roles LIKE :role')
-                ->setParameter('role', '%"' . $filters['role'] . '"%');
+            ->setParameter('role', '%"' . $filters->role . '"%');
         }
 
         // Filtre par statut
-        if (!empty($filters['statut'])) {
+        if ($filters->statut) {
             $qb->andWhere('u.statut = :statut')
-                ->setParameter('statut', $filters['statut']);
+               ->setParameter('statut', $filters->statut);
         }
 
         // Tri
-        $sortField = $filters['sortField'] ?? 'id';
-        $sortOrder = strtoupper($filters['sortOrder'] ?? 'ASC');
+        $validSortFields = ['id', 'email', 'pseudo', 'nom', 'prenom', 'createdAt', 'scoreFiabilite'];
+        $sortField = in_array($filters->sortField, $validSortFields) ? $filters->sortField : 'id';
+        $sortOrder = strtolower($filters->sortOrder) === 'desc' ? 'DESC' : 'ASC';
+        
+        $qb->orderBy('u.' . $sortField, $sortOrder);
 
-        $allowedSortFields = ['id', 'email', 'pseudo', 'nom', 'prenom', 'createdAt', 'scoreFiabilite'];
-        if (in_array($sortField, $allowedSortFields)) {
-            $qb->orderBy('u.' . $sortField, $sortOrder);
-        }
-
-        // Compter le total avant pagination
-        $totalQb = clone $qb;
-        $total = $totalQb->select('COUNT(u.id)')->getQuery()->getSingleScalarResult();
+        // Count total pour la pagination
+        $countQb = clone $qb;
+        $total = $countQb->select('COUNT(u.id)')->getQuery()->getSingleScalarResult();
 
         // Pagination
-        $page = max(1, $filters['page'] ?? 1);
-        $limit = max(1, min(50, $filters['limit'] ?? 10));
-        $offset = ($page - 1) * $limit;
-
-        $qb->setFirstResult($offset)
-            ->setMaxResults($limit);
-
-        $users = $qb->getQuery()->getResult();
+        $qb->setFirstResult(($filters->page - 1) * $filters->limit)
+           ->setMaxResults($filters->limit);
 
         return [
-            'users' => $users,
-            'total' => (int) $total
+            'users' => $qb->getQuery()->getResult(),
+            'total' => $total
         ];
     }
 
     /**
-     * Recherche d'utilisateurs par terme de recherche simple
-     *
-     * @param string $searchTerm
-     * @param int $limit
-     * @return User[]
+     * Trouve les utilisateurs par IDs
      */
-    public function searchUsers(string $searchTerm, int $limit = 20): array
+    public function findByIds(array $ids): array
     {
-        $searchTerm = '%' . $searchTerm . '%';
-
         return $this->createQueryBuilder('u')
-            ->where('u.email LIKE :search OR u.pseudo LIKE :search OR u.nom LIKE :search OR u.prenom LIKE :search')
-            ->setParameter('search', $searchTerm)
-            ->orderBy('u.pseudo', 'ASC')
-            ->setMaxResults($limit)
+            ->andWhere('u.id IN (:ids)')
+            ->setParameter('ids', $ids)
             ->getQuery()
             ->getResult();
     }
 
     /**
-     * Trouve les utilisateurs par rôle
-     *
-     * @param string $role
-     * @return User[]
+     * Compte les utilisateurs par statut
      */
-    public function findByRole(string $role): array
+    public function countByStatut(): array
     {
-        return $this->createQueryBuilder('u')
-            ->where('JSON_CONTAINS(u.roles, :role) = 1')
-            ->setParameter('role', json_encode($role))
-            ->orderBy('u.pseudo', 'ASC')
+        $result = $this->createQueryBuilder('u')
+            ->select('u.statut, COUNT(u.id) as count')
+            ->groupBy('u.statut')
             ->getQuery()
             ->getResult();
+
+        $counts = [];
+        foreach ($result as $row) {
+            $counts[$row['statut']->value] = $row['count'];
+        }
+
+        return $counts;
     }
 
-    /**
+        /**
      * Statistiques des utilisateurs
      *
      * @return array

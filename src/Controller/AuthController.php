@@ -140,7 +140,7 @@ class AuthController extends AbstractController
         $data = json_decode($request->getContent(), true);
 
         // On autorise uniquement certaines propriétés
-        $allowedFields = ['nom', 'prenom', 'telephone', 'dateNaissance','pseudo'];
+        $allowedFields = ['nom', 'prenom', 'telephone', 'dateNaissance','pseudo', 'codePostal', 'ville'];
         foreach ($allowedFields as $field) {
             if (!array_key_exists($field, $data)) {
                 continue;

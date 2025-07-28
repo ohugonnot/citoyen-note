@@ -1,4 +1,3 @@
-
 <template>
   <!-- Modal de création d'utilisateur -->
   <Dialog
@@ -8,13 +7,15 @@
     :dismissableMask="false"
     :draggable="false"
     class="create-user-modal"
-  :style="{ width: '90vw', maxWidth: '800px' }"
-  :breakpoints="{ '960px': '95vw', '640px': '100vw' }"
+    :style="{ width: '90vw', maxWidth: '800px' }"
+    :breakpoints="{ '960px': '95vw', '640px': '100vw' }"
   >
     <template #header>
       <div class="d-flex align-items-center">
         <div class="me-3">
-          <div class="modal-icon bg-success text-white d-flex align-items-center justify-content-center">
+          <div
+            class="modal-icon bg-success text-white d-flex align-items-center justify-content-center"
+          >
             <i class="pi pi-user-plus fs-4"></i>
           </div>
         </div>
@@ -129,7 +130,7 @@
                   v-model="formData.password"
                   class="form-control"
                   :class="{ 'is-invalid': errors.password }"
-                  placeholder="••••••••"
+                  placeholder=""
                   autocomplete="new-password"
                   required
                 />
@@ -164,7 +165,7 @@
                   v-model="formData.confirmPassword"
                   class="form-control"
                   :class="{ 'is-invalid': errors.confirmPassword }"
-                  placeholder="••••••••"
+                  placeholder=""
                   autocomplete="new-password"
                   required
                 />
@@ -204,18 +205,38 @@
 
             <div class="col-md-6">
               <label class="form-label fw-semibold text-dark">
-                <i class="pi pi-circle me-1"></i>
+                <i class="pi pi-flag me-1"></i>
                 Statut initial
               </label>
-              <select
+              <Select
+                id="statut"
                 v-model="formData.statut"
-                class="form-select"
-                :class="{ 'is-invalid': errors.statut }"
+                :options="statutOptions"
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Choisir un statut"
+                class="w-100"
+                :class="{ 'p-invalid': errors.statut }"
               >
-                <option v-for="statut in statutOptions" :key="statut.value" :value="statut.value">
-                  {{ statut.label }}
-                </option>
-              </select>
+                <template #option="{ option }">
+                  <div class="d-flex align-items-center">
+                    <Tag
+                      :value="option.label"
+                      :severity="getStatusSeverity(option.value)"
+                      class="me-2"
+                    />
+                  </div>
+                </template>
+                <template #value="{ value }">
+                  <div v-if="value" class="d-flex align-items-center">
+                    <Tag
+                      :value="getStatusLabel(value)"
+                      :severity="getStatusSeverity(value)"
+                      class="me-2"
+                    />
+                  </div>
+                </template>
+              </Select>
               <div v-if="errors.statut" class="invalid-feedback">
                 {{ errors.statut }}
               </div>
@@ -274,6 +295,44 @@
                 />
                 <div v-if="errors.dateNaissance" class="invalid-feedback">
                   {{ errors.dateNaissance }}
+                </div>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label fw-semibold text-dark">
+                  <i class="pi pi-map-marker me-1"></i>
+                  Code postal
+                </label>
+                <input
+                  type="text"
+                  v-model="formData.codePostal"
+                  class="form-control"
+                  :class="{ 'is-invalid': errors.codePostal }"
+                  placeholder=""
+                  pattern="[0-9]{5}"
+                  maxlength="5"
+                  autocomplete="postal-code"
+                />
+                <div v-if="errors.codePostal" class="invalid-feedback">
+                  {{ errors.codePostal }}
+                </div>
+              </div>
+
+              <div class="col-md-9">
+                <label class="form-label fw-semibold text-dark">
+                  <i class="pi pi-home me-1"></i>
+                  Ville
+                </label>
+                <input
+                  type="text"
+                  v-model="formData.ville"
+                  class="form-control"
+                  :class="{ 'is-invalid': errors.ville }"
+                  placeholder=""
+                  autocomplete="address-level2"
+                />
+                <div v-if="errors.ville" class="invalid-feedback">
+                  {{ errors.ville }}
                 </div>
               </div>
             </div>
@@ -379,16 +438,14 @@ import Dialog from 'primevue/dialog'
 import Button from 'primevue/button'
 import MultiSelect from 'primevue/multiselect'
 import { useToast } from 'primevue/usetoast'
-import {
-  createUser
-} from '@/api/users'
+import { createUser } from '@/api/users'
 
 // Props et émissions
 const props = defineProps({
   visible: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 })
 
 const emit = defineEmits(['update:visible', 'user-created'])
@@ -399,7 +456,7 @@ const toast = useToast()
 // État réactif
 const showCreateModal = computed({
   get: () => props.visible,
-  set: (value) => emit('update:visible', value)
+  set: (value) => emit('update:visible', value),
 })
 
 const createLoading = ref(false)
@@ -420,8 +477,10 @@ const formData = ref({
   statut: 'actif',
   telephone: '',
   dateNaissance: '',
+  codePostal: '',
+  ville: '',
   isVerified: false,
-  sendWelcomeEmail: true
+  sendWelcomeEmail: true,
 })
 
 const errors = ref({})
@@ -436,8 +495,22 @@ const roleOptions = [
 
 const statutOptions = [
   { label: 'Actif', value: 'actif' },
-  { label: 'Suspendu', value: 'suspendu' }
+  { label: 'Suspendu', value: 'suspendu' },
 ]
+
+const getStatusSeverity = (status) => {
+  const severityMap = {
+    actif: 'success',
+    suspendu: 'warn',
+    supprime: 'danger',
+  }
+  return severityMap[status] || 'info'
+}
+
+const getStatusLabel = (status) => {
+  const option = statutOptions.find((opt) => opt.value === status)
+  return option?.label || status
+}
 
 // Validation
 const validateForm = () => {
@@ -445,9 +518,9 @@ const validateForm = () => {
 
   // Email obligatoire et format valide
   if (!formData.value.email) {
-    newErrors.email = 'L\'email est obligatoire'
+    newErrors.email = "L'email est obligatoire"
   } else if (!/\S+@\S+\.\S+/.test(formData.value.email)) {
-    newErrors.email = 'Format d\'email invalide'
+    newErrors.email = "Format d'email invalide"
   }
 
   // Mot de passe obligatoire et complexité
@@ -456,7 +529,8 @@ const validateForm = () => {
   } else if (formData.value.password.length < 8) {
     newErrors.password = 'Le mot de passe doit contenir au moins 8 caractères'
   } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.value.password)) {
-    newErrors.password = 'Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre'
+    newErrors.password =
+      'Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre'
   }
 
   // Confirmation du mot de passe
@@ -475,7 +549,10 @@ const validateForm = () => {
   }
 
   // Validation du téléphone si renseigné
-  if (formData.value.telephone && !/^(?:\+33|0)[1-9](?:[0-9]{8})$/.test(formData.value.telephone.replace(/\D/g, ''))) {
+  if (
+    formData.value.telephone &&
+    !/^(?:\+33|0)[1-9](?:[0-9]{8})$/.test(formData.value.telephone.replace(/\D/g, ''))
+  ) {
     newErrors.telephone = 'Format de téléphone invalide'
   }
 
@@ -484,12 +561,14 @@ const validateForm = () => {
 }
 
 const isFormValid = computed(() => {
-  return formData.value.email &&
+  return (
+    formData.value.email &&
     formData.value.password &&
     formData.value.confirmPassword &&
     formData.value.password === formData.value.confirmPassword &&
     formData.value.roles &&
     formData.value.roles.length > 0
+  )
 })
 
 // Actions
@@ -499,7 +578,7 @@ const submitCreateUser = async () => {
       severity: 'warn',
       summary: 'Attention',
       detail: 'Veuillez corriger les erreurs dans le formulaire',
-      life: 3000
+      life: 3000,
     })
     return
   }
@@ -518,37 +597,34 @@ const submitCreateUser = async () => {
       severity: 'success',
       summary: 'Succès',
       detail: `Utilisateur "${formData.value.email}" créé avec succès`,
-      life: 5000
+      life: 5000,
     })
 
     emit('user-created', newUser) // Passer les données du nouvel utilisateur
     closeCreateModal()
-
   } catch (error) {
     console.error('[submitCreateUser] Erreur:', error)
 
     // Gestion des erreurs spécifiques
-    let errorMessage = 'Erreur lors de la création de l\'utilisateur'
-
+    let detail = "Erreur lors de la création de l'utilisateur"
+    let errorMessage
     if (error?.response?.status === 409) {
       errorMessage = 'Un utilisateur avec cet email existe déjà'
-    } else if (error?.response?.status === 400) {
-      errorMessage = error?.response?.data?.error || 'Données invalides'
-    } else if (error?.response?.data?.message) {
-      errorMessage = error.response.data.error
+    } else {
+      errorMessage =
+        error?.response?.data?.error || error?.response?.data?.message || 'Données invalides'
     }
 
     toast.add({
       severity: 'error',
-      summary: 'Erreur',
+      summary: detail,
       detail: errorMessage,
-      life: 5000
+      life: 5000,
     })
   } finally {
     createLoading.value = false
   }
 }
-
 
 const closeCreateModal = () => {
   resetForm()
@@ -567,8 +643,10 @@ const resetForm = () => {
     statut: 'actif',
     telephone: '',
     dateNaissance: '',
+    codePostal: '',
+    ville: '',
     isVerified: false,
-    sendWelcomeEmail: true
+    sendWelcomeEmail: true,
   }
   errors.value = {}
   showPassword.value = false
@@ -578,11 +656,14 @@ const resetForm = () => {
 }
 
 // Watch pour réinitialiser quand la modal se ferme
-watch(() => props.visible, (newVal) => {
-  if (!newVal) {
-    resetForm()
-  }
-})
+watch(
+  () => props.visible,
+  (newVal) => {
+    if (!newVal) {
+      resetForm()
+    }
+  },
+)
 </script>
 
 <style scoped>
@@ -910,7 +991,6 @@ small {
 }
 </style>
 
-
 <style>
 @media (max-width: 640px) {
   .p-dialog.create-user-modal {
@@ -965,8 +1045,7 @@ small {
   }
 
   .p-dialog.create-user-modal .p-dialog-footer .p-button-success::after {
-    content: "Créer" !important;
+    content: 'Créer' !important;
   }
 }
-
 </style>

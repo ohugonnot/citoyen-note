@@ -6,13 +6,13 @@
           <div class="card-header bg-gradient-primary text-white text-center py-4">
             <div class="profile-avatar mb-3">
               <div class="avatar-circle d-inline-flex align-items-center justify-content-center">
-                <i class="bi bi-person-fill" style="font-size: 3rem;"></i>
+                <i class="bi bi-person-fill" style="font-size: 3rem"></i>
               </div>
             </div>
             <h2 class="mb-1">{{ user.pseudo || user.prenom || 'Utilisateur' }}</h2>
             <p class="mb-2 text-white-50">{{ user.nom }} {{ user.prenom }}</p>
             <span class="badge bg-light text-primary px-3 py-2 rounded-pill">
-              <i class="bi bi-circle-fill me-1" :class="statusClass" style="font-size: 0.6rem;"></i>
+              <i class="bi bi-circle-fill me-1" :class="statusClass" style="font-size: 0.6rem"></i>
               {{ statusText }}
             </span>
           </div>
@@ -29,11 +29,21 @@
                 <div class="row">
                   <div class="col-md-6">
                     <div class="info-item mb-3">
-                      <label class="form-label text-muted small fw-bold text-uppercase">Prénom</label>
+                      <label class="form-label text-muted small fw-bold text-uppercase"
+                        >Prénom</label
+                      >
                       <div class="d-flex align-items-center w-100">
                         <i class="bi bi-person me-2 text-primary"></i>
-                        <span v-if="!isEditing" class="fs-6">{{ user.prenom || 'Non renseigné' }}</span>
-                        <input v-else v-model="user.prenom" type="text" class="form-control" :class="{ 'editing-input': isEditing }" />
+                        <span v-if="!isEditing" class="fs-6">{{
+                          user.prenom || 'Non renseigné'
+                        }}</span>
+                        <input
+                          v-else
+                          v-model="user.prenom"
+                          type="text"
+                          class="form-control"
+                          :class="{ 'editing-input': isEditing }"
+                        />
                       </div>
                     </div>
                   </div>
@@ -42,8 +52,16 @@
                       <label class="form-label text-muted small fw-bold text-uppercase">Nom</label>
                       <div class="d-flex align-items-center w-100">
                         <i class="bi bi-person me-2 text-primary"></i>
-                        <span v-if="!isEditing" class="fs-6">{{ user.nom || 'Non renseigné' }}</span>
-                        <input v-else v-model="user.nom" type="text" class="form-control" :class="{ 'editing-input': isEditing }"/>
+                        <span v-if="!isEditing" class="fs-6">{{
+                          user.nom || 'Non renseigné'
+                        }}</span>
+                        <input
+                          v-else
+                          v-model="user.nom"
+                          type="text"
+                          class="form-control"
+                          :class="{ 'editing-input': isEditing }"
+                        />
                       </div>
                     </div>
                   </div>
@@ -54,12 +72,20 @@
                   <div class="d-flex align-items-center">
                     <i class="bi bi-at me-2 text-primary"></i>
                     <span v-if="!isEditing" class="fs-6">{{ user.pseudo || 'Non défini' }}</span>
-                    <input v-else v-model="user.pseudo" type="text" class="form-control" :class="{ 'editing-input': isEditing }" />
+                    <input
+                      v-else
+                      v-model="user.pseudo"
+                      type="text"
+                      class="form-control"
+                      :class="{ 'editing-input': isEditing }"
+                    />
                   </div>
                 </div>
 
                 <div class="info-item mb-3">
-                  <label class="form-label text-muted small fw-bold text-uppercase">Date de naissance</label>
+                  <label class="form-label text-muted small fw-bold text-uppercase"
+                    >Date de naissance</label
+                  >
                   <div class="d-flex align-items-center w-100">
                     <i class="bi bi-calendar-event me-2 text-primary"></i>
                     <template v-if="!isEditing">
@@ -68,7 +94,13 @@
                         {{ getAge(user.dateNaissance) }} ans
                       </span>
                     </template>
-                    <input v-else v-model="user.dateNaissance" type="date" class="form-control"  :class="{ 'editing-input': isEditing }" />
+                    <input
+                      v-else
+                      v-model="user.dateNaissance"
+                      type="date"
+                      class="form-control"
+                      :class="{ 'editing-input': isEditing }"
+                    />
                   </div>
                 </div>
               </div>
@@ -94,7 +126,7 @@
                         <i class="bi bi-exclamation-triangle me-1"></i>
                         Non vérifié
                       </span>
-                                      <span v-else class="badge bg-success">
+                      <span v-else class="badge bg-success">
                         <i class="bi bi-check-circle me-1"></i>
                         Vérifié
                       </span>
@@ -103,11 +135,65 @@
                 </div>
 
                 <div class="info-item mb-3">
-                  <label class="form-label text-muted small fw-bold text-uppercase">Téléphone</label>
+                  <label class="form-label text-muted small fw-bold text-uppercase"
+                    >Téléphone</label
+                  >
                   <div class="d-flex align-items-center w-100">
                     <i class="bi bi-phone me-2 text-primary"></i>
-                    <span v-if="!isEditing" class="fs-6">{{ user.telephone || 'Non renseigné' }}</span>
-                    <input v-else v-model="user.telephone" type="text" class="form-control"  :class="{ 'editing-input': isEditing }" />
+                    <span v-if="!isEditing" class="fs-6">{{
+                      user.telephone || 'Non renseigné'
+                    }}</span>
+                    <input
+                      v-else
+                      v-model="user.telephone"
+                      type="text"
+                      class="form-control"
+                      :class="{ 'editing-input': isEditing }"
+                    />
+                  </div>
+                </div>
+
+                <div class="row">
+                  <div class="col-md-5">
+                    <div class="info-item mb-3">
+                      <label class="form-label text-muted small fw-bold text-uppercase"
+                        >Code postal</label
+                      >
+                      <div class="d-flex align-items-center w-100">
+                        <i class="bi bi-geo-alt me-2 text-primary"></i>
+                        <span v-if="!isEditing" class="fs-6">{{
+                          user.codePostal || 'Non renseigné'
+                        }}</span>
+                        <input
+                          v-else
+                          v-model="user.codePostal"
+                          type="text"
+                          class="form-control"
+                          :class="{ 'editing-input': isEditing }"
+                          maxlength="5"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-7">
+                    <div class="info-item mb-3">
+                      <label class="form-label text-muted small fw-bold text-uppercase"
+                        >Ville</label
+                      >
+                      <div class="d-flex align-items-center w-100">
+                        <i class="bi bi-house me-2 text-primary"></i>
+                        <span v-if="!isEditing" class="fs-6">{{
+                          user.ville || 'Non renseignée'
+                        }}</span>
+                        <input
+                          v-else
+                          v-model="user.ville"
+                          type="text"
+                          class="form-control"
+                          :class="{ 'editing-input': isEditing }"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -124,7 +210,9 @@
                 <div class="row">
                   <div class="col-md-6">
                     <div class="info-item mb-3">
-                      <label class="form-label text-muted small fw-bold text-uppercase">Identifiant</label>
+                      <label class="form-label text-muted small fw-bold text-uppercase"
+                        >Identifiant</label
+                      >
                       <div class="d-flex align-items-center">
                         <i class="bi bi-hash text-primary me-2"></i>
                         <span class="fs-6">{{ user.id }}</span>
@@ -133,11 +221,16 @@
                   </div>
                   <div class="col-md-6">
                     <div class="info-item mb-3">
-                      <label class="form-label text-muted small fw-bold text-uppercase">Rôles</label>
+                      <label class="form-label text-muted small fw-bold text-uppercase"
+                        >Rôles</label
+                      >
                       <div class="d-flex align-items-center flex-wrap">
                         <i class="bi bi-person-badge text-primary me-2"></i>
-                        <span v-for="role in user.roles" :key="role"
-                              class="badge bg-primary me-1 mb-1">
+                        <span
+                          v-for="role in user.roles"
+                          :key="role"
+                          class="badge bg-primary me-1 mb-1"
+                        >
                           {{ formatRole(role) }}
                         </span>
                       </div>
@@ -153,11 +246,12 @@
                 <i class="bi bi-star me-2"></i>
                 Score de fiabilité
               </h5>
-              <div class="progress mb-2" style="height: 10px;">
-                <div class="progress-bar bg-gradient-primary"
-                     :style="{ width: fiabilityPercentage + '%' }"
-                     role="progressbar">
-                </div>
+              <div class="progress mb-2" style="height: 10px">
+                <div
+                  class="progress-bar bg-gradient-primary"
+                  :style="{ width: fiabilityPercentage + '%' }"
+                  role="progressbar"
+                ></div>
               </div>
               <div class="d-flex justify-content-between align-items-center">
                 <span class="text-muted small">{{ user.scoreFiabilite }} / 100</span>
@@ -178,12 +272,7 @@
                 <i class="bi bi-pencil me-2"></i>
                 Modifier le profil
               </button>
-              <button
-                v-else
-                class="btn btn-primary"
-                type="button"
-                @click="saveProfile"
-              >
+              <button v-else class="btn btn-primary" type="button" @click="saveProfile">
                 <i class="bi bi-check-lg me-2"></i>
                 Enregistrer
               </button>
@@ -228,6 +317,8 @@ const saveProfile = async () => {
       pseudo: user.value.pseudo,
       telephone: user.value.telephone,
       dateNaissance: user.value.dateNaissance,
+      codePostal: user.value.codePostal,
+      ville: user.value.ville,
     })
 
     if (success) {
@@ -272,8 +363,11 @@ const fiabilityBadgeClass = computed(() => {
 })
 
 const formatRole = (role) => {
-  return role.replace('ROLE_', '').toLowerCase().replace('_', ' ')
-    .replace(/\b\w/g, l => l.toUpperCase())
+  return role
+    .replace('ROLE_', '')
+    .toLowerCase()
+    .replace('_', ' ')
+    .replace(/\b\w/g, (l) => l.toUpperCase())
 }
 
 const formatDateNaissance = (dateNaissance) => {
@@ -284,7 +378,7 @@ const formatDateNaissance = (dateNaissance) => {
     return date.toLocaleDateString('fr-FR', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     })
   } catch (error) {
     console.error('[formatDateNaissance] Erreur', error)
@@ -463,5 +557,4 @@ const getAge = (dateNaissance) => {
 .editing-input:focus {
   border-color: #4f46e5;
 }
-
 </style>

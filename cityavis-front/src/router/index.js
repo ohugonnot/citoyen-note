@@ -53,7 +53,7 @@ const routes = [
   {
     path: '/admin/users/:id/edit',
     name: 'AdminUserEdit',
-    component: () => import('@/views/AdminUserEdit.vue'),
+    component: () => import('@/views/EditUser.vue'),
     meta: {
       requiresAuth: true,
       requiresAdmin: false,

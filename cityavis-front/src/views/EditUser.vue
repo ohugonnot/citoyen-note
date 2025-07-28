@@ -27,13 +27,7 @@
             <div class="row">
               <div class="col-12 col-md-6 mb-3">
                 <label for="email" class="form-label fw-medium">Email *</label>
-                <InputText
-                  id="email"
-                  v-model="form.email"
-                  type="email"
-                  disabled
-                  class="w-100"
-                />
+                <InputText id="email" v-model="form.email" type="email" disabled class="w-100" />
                 <small class="form-text text-muted">L'email ne peut pas être modifié</small>
               </div>
 
@@ -53,22 +47,12 @@
             <div class="row">
               <div class="col-12 col-md-6 mb-3">
                 <label for="nom" class="form-label fw-medium">Nom</label>
-                <InputText
-                  id="nom"
-                  v-model="form.nom"
-                  type="text"
-                  class="w-100"
-                />
+                <InputText id="nom" v-model="form.nom" type="text" class="w-100" />
               </div>
 
               <div class="col-12 col-md-6 mb-3">
                 <label for="prenom" class="form-label fw-medium">Prénom</label>
-                <InputText
-                  id="prenom"
-                  v-model="form.prenom"
-                  type="text"
-                  class="w-100"
-                />
+                <InputText id="prenom" v-model="form.prenom" type="text" class="w-100" />
               </div>
             </div>
           </div>
@@ -106,6 +90,31 @@
                 />
               </div>
             </div>
+
+            <div class="row">
+              <div class="col-12 col-md-3 mb-3">
+                <label for="codePostal" class="form-label fw-medium">Code postal</label>
+                <InputText
+                  id="codePostal"
+                  v-model="form.codePostal"
+                  type="text"
+                  class="w-100"
+                  placeholder=""
+                  maxlength="5"
+                />
+              </div>
+
+              <div class="col-12 col-md-9 mb-3">
+                <label for="ville" class="form-label fw-medium">Ville</label>
+                <InputText
+                  id="ville"
+                  v-model="form.ville"
+                  type="text"
+                  class="w-100"
+                  placeholder=""
+                />
+              </div>
+            </div>
           </div>
 
           <!-- Administration -->
@@ -135,7 +144,6 @@
                         :severity="getStatusSeverity(option.value)"
                         class="me-2"
                       />
-                      {{ option.label }}
                     </div>
                   </template>
                   <template #value="{ value }">
@@ -145,7 +153,6 @@
                         :severity="getStatusSeverity(value)"
                         class="me-2"
                       />
-                      {{ getStatusLabel(value) }}
                     </div>
                   </template>
                 </Select>
@@ -173,11 +180,7 @@
             <div class="row">
               <div class="col-12 col-md-6 mb-3">
                 <div class="d-flex align-items-center">
-                  <Checkbox
-                    id="verified"
-                    v-model="form.isVerified"
-                    binary
-                  />
+                  <Checkbox id="verified" v-model="form.isVerified" binary />
                   <label for="verified" class="form-label fw-medium ms-2 mb-0">Email vérifié</label>
                 </div>
                 <small class="form-text text-muted">
@@ -203,9 +206,7 @@
                     type="button"
                   />
                 </div>
-                <small class="form-text text-muted">
-                  Score entre 0 et 100%
-                </small>
+                <small class="form-text text-muted"> Score entre 0 et 100% </small>
               </div>
             </div>
           </div>
@@ -240,9 +241,7 @@
       style="width: 90%; max-width: 400px"
       class="mx-auto"
     >
-      <p class="mb-3">
-        Le score de fiabilité est calculé en fonction de plusieurs critères :
-      </p>
+      <p class="mb-3">Le score de fiabilité est calculé en fonction de plusieurs critères :</p>
       <ul class="list-unstyled">
         <li class="d-flex align-items-center mb-2">
           <i class="pi pi-check-circle text-success me-2"></i>
@@ -305,13 +304,15 @@ const form = ref({
   roles: [],
   isVerified: false,
   scoreFiabilite: 0,
+  codePostal: '',
+  ville: '',
 })
 
 // Options
 const statusOptions = [
   { label: 'Actif', value: 'actif' },
   { label: 'Suspendu', value: 'suspendu' },
-  { label: 'Supprimé', value: 'supprime' }
+  { label: 'Supprimé', value: 'supprime' },
 ]
 
 const rolesDisponibles = [
@@ -329,23 +330,21 @@ const maxBirthDate = computed(() => {
 })
 
 const isFormValid = computed(() => {
-  return form.value.pseudo?.trim() &&
-    form.value.statut &&
-    form.value.roles?.length > 0
+  return form.value.pseudo?.trim() && form.value.statut && form.value.roles?.length > 0
 })
 
 // Méthodes utilitaires
 const getStatusSeverity = (status) => {
   const severityMap = {
-    'actif': 'success',
-    'suspendu': 'warning',
-    'supprime': 'danger'
+    actif: 'success',
+    suspendu: 'warn',
+    supprime: 'danger',
   }
   return severityMap[status] || 'info'
 }
 
 const getStatusLabel = (status) => {
-  const option = statusOptions.find(opt => opt.value === status)
+  const option = statusOptions.find((opt) => opt.value === status)
   return option?.label || status
 }
 
@@ -384,13 +383,15 @@ onMounted(async () => {
       roles: user.roles || [],
       isVerified: user.isVerified || false,
       scoreFiabilite: user.scoreFiabilite || 0,
+      codePostal: user.codePostal || '',
+      ville: user.ville || '',
     }
   } catch (error) {
     toast.add({
       severity: 'error',
       summary: 'Erreur',
-      detail: 'Impossible de charger l\'utilisateur',
-      life: 5000
+      detail: "Impossible de charger l'utilisateur",
+      life: 5000,
     })
     console.error('[onMounted] error:', error)
   } finally {
@@ -405,7 +406,7 @@ const submitForm = async () => {
       severity: 'warn',
       summary: 'Formulaire invalide',
       detail: 'Veuillez corriger les erreurs avant de continuer',
-      life: 4000
+      life: 4000,
     })
     return
   }
@@ -415,8 +416,9 @@ const submitForm = async () => {
   try {
     const payload = {
       ...form.value,
-      dateNaissance: form.value.dateNaissance ?
-        form.value.dateNaissance.toISOString().split('T')[0] : null
+      dateNaissance: form.value.dateNaissance
+        ? form.value.dateNaissance.toISOString().split('T')[0]
+        : null,
     }
 
     await updateUser(form.value.id, payload)
@@ -425,20 +427,19 @@ const submitForm = async () => {
       severity: 'success',
       summary: 'Succès',
       detail: 'Utilisateur mis à jour avec succès',
-      life: 3000
+      life: 3000,
     })
 
     // Redirection après un petit délai pour voir le toast
     setTimeout(() => {
       router.push('/admin/users')
     }, 1000)
-
   } catch (error) {
     toast.add({
       severity: 'error',
       summary: 'Erreur',
       detail: error.message || 'Erreur lors de la mise à jour',
-      life: 5000
+      life: 5000,
     })
     console.error('[submitForm] error:', error)
   } finally {

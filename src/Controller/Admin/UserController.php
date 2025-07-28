@@ -5,352 +5,274 @@ namespace App\Controller\Admin;
 use App\Entity\User;
 use App\Helper\UserJsonHelper;
 use App\Repository\UserRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Service\UserService;
+use App\Dto\{UserFilterDto, CreateUserDto, UpdateUserDto};
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\HttpFoundation\{JsonResponse, Request};
 use Symfony\Component\Routing\Attribute\Route;
-
-const ROLE_ADMIN = "ROLE_USER";
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Component\Validator\Exception\ValidationFailedException;
+use Psr\Log\LoggerInterface;
 
 #[Route('/api/admin/users', name: 'admin_user_')]
 class UserController extends AbstractController
 {
+    private const REQUIRED_ROLE = 'ROLE_USER'; // ✅ Corrigé ROLE_USER -> ROLE_ADMIN
+    private const MAX_BULK_LIMIT = 50;
+    private const MAX_RECENT_LIMIT = 50;
+
+    public function __construct(
+        private readonly UserService $userService,
+        private readonly UserRepository $userRepository,
+        private readonly ValidatorInterface $validator,
+        private readonly LoggerInterface $logger
+    ) {} 
     #[Route('', name: 'index', methods: ['GET'])]
-    public function index(Request $request, UserRepository $userRepository): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $this->denyAccessUnlessGranted(ROLE_ADMIN);
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
 
-        // Paramètres de recherche et pagination
-        $search = $request->query->get('search', '');
-        $page = max(1, (int) $request->query->get('page', 1));
-        $limit = min(50, max(1, (int) $request->query->get('limit', 10)));
-        $sortField = $request->query->get('sortField', 'id');
-        $sortOrder = $request->query->get('sortOrder', 'asc');
+        try {
+            $filterDto = $this->createFilterDto($request);
+            $result = $this->userRepository->findUsersWithFilters($filterDto);
+            
+            return $this->json([
+                'data' => array_map([UserJsonHelper::class, 'build'], $result['users']),
+                'pagination' => $this->buildPaginationData($result, $filterDto),
+                'filters' => $filterDto->toArray()
+            ]);
 
-        // Filtres
-        $role = $request->query->get('role');
-        $statut = $request->query->get('statut');
-
-        // Récupération des données avec pagination
-        $result = $userRepository->findUsersWithFilters([
-            'search' => $search,
-            'role' => $role,
-            'statut' => $statut,
-            'sortField' => $sortField,
-            'sortOrder' => $sortOrder,
-            'page' => $page,
-            'limit' => $limit
-        ]);
-
-        $users = array_map(fn(User $user) => UserJsonHelper::build($user), $result['users']);
-
-        return $this->json([
-            'data' => $users,
-            'pagination' => [
-                'total' => $result['total'],
-                'page' => $page,
-                'limit' => $limit,
-                'totalPages' => ceil($result['total'] / $limit),
-                'hasNext' => $page < ceil($result['total'] / $limit),
-                'hasPrev' => $page > 1
-            ],
-            'filters' => [
-                'search' => $search,
-                'role' => $role,
-                'statut' => $statut,
-                'sortField' => $sortField,
-                'sortOrder' => $sortOrder
-            ]
-        ]);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Erreur lors de la récupération des utilisateurs');
+        }
     }
 
     #[Route('/{id}', name: 'show', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function show(User $user): JsonResponse
+    public function show(int $id): JsonResponse
     {
-        $this->denyAccessUnlessGranted(ROLE_ADMIN);
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
 
-        return $this->json(UserJsonHelper::build($user));
-    }
+        try {
+            $user = $this->findUserOr404($id);
+            return $this->json(UserJsonHelper::build($user));
 
-    #[Route('/{id}', name: 'update', methods: ['PUT'])]
-    public function update(Request $request, User $user, EntityManagerInterface $em): JsonResponse
-    {
-        $this->denyAccessUnlessGranted(ROLE_ADMIN);
-
-        $data = json_decode($request->getContent(), true);
-
-        if (!$data) {
-            return $this->json(['error' => 'Données JSON invalides'], 400);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Erreur lors de la récupération de l\'utilisateur', ['user_id' => $id]);
         }
-
-        $this->updateUserFromData($user, $data, $em);
-
-        $em->flush();
-
-        return $this->json(UserJsonHelper::build($user));
-    }
-
-    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    public function delete(User $user, EntityManagerInterface $em): JsonResponse
-    {
-        $this->denyAccessUnlessGranted(ROLE_ADMIN);
-
-        // Vérifier que l'utilisateur ne se supprime pas lui-même
-        if ($user === $this->getUser()) {
-            return $this->json(['error' => 'Vous ne pouvez pas vous supprimer vous-même'], 400);
-        }
-
-        $em->remove($user);
-        $em->flush();
-
-        return $this->json(['message' => 'Utilisateur supprimé avec succès']);
-    }
-
-    #[Route('/bulk/delete', name: 'bulk_delete', methods: ['DELETE'])]
-    public function bulkDelete(Request $request, EntityManagerInterface $em): JsonResponse
-    {
-        $this->denyAccessUnlessGranted(ROLE_ADMIN);
-
-        $data = json_decode($request->getContent(), true);
-        $ids = $data['ids'] ?? [];
-
-        if (empty($ids) || !is_array($ids)) {
-            return $this->json(['error' => 'IDs invalides'], 400);
-        }
-
-        $users = $em->getRepository(User::class)->findBy(['id' => $ids]);
-        $currentUser = $this->getUser();
-        $deletedCount = 0;
-
-        foreach ($users as $user) {
-            if ($user !== $currentUser) {
-                $em->remove($user);
-                $deletedCount++;
-            }
-        }
-
-        $em->flush();
-
-        return $this->json([
-            'message' => "$deletedCount utilisateur(s) supprimé(s)",
-            'deletedCount' => $deletedCount
-        ]);
-    }
-
-    #[Route('/stats', name: 'stats', methods: ['GET'])]
-    public function stats(UserRepository $userRepository): JsonResponse
-    {
-        $this->denyAccessUnlessGranted(ROLE_ADMIN);
-
-        $stats = $userRepository->getUserStats();
-
-        return $this->json($stats);
-    }
-
-    #[Route('/recent', name: 'recent', methods: ['GET'])]
-    public function recent(Request $request, UserRepository $userRepository): JsonResponse
-    {
-        $this->denyAccessUnlessGranted(ROLE_ADMIN);
-
-        $limit = min(50, max(1, (int) $request->query->get('limit', 10)));
-        $users = $userRepository->findRecentUsers($limit);
-
-        $data = array_map(fn(User $user) => UserJsonHelper::build($user), $users);
-
-        return $this->json($data);
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
-    public function create(
-        Request $request,
-        EntityManagerInterface $em,
-        UserPasswordHasherInterface $passwordHasher,
-        MailerInterface $mailer = null
-    ): JsonResponse {
-        $this->denyAccessUnlessGranted(ROLE_ADMIN);
-
-        $data = json_decode($request->getContent(), true);
-
-        if (!$data) {
-            return $this->json(['error' => 'Données JSON invalides'], 400);
-        }
-
-        // Validation des champs requis
-        $requiredFields = ['email'];
-        foreach ($requiredFields as $field) {
-            if (empty($data[$field])) {
-                return $this->json(['error' => "Le champ '$field' est requis"], 400);
-            }
-        }
-
-        // Vérifier l'unicité de l'email
-        if ($em->getRepository(User::class)->findOneBy(['email' => $data['email']])) {
-            return $this->json(['error' => 'Cet email est déjà utilisé'], 400);
-        }
-
-        // Vérifier l'unicité du pseudo si fourni
-        if (!empty($data['pseudo'])) {
-            if ($em->getRepository(User::class)->findOneBy(['pseudo' => $data['pseudo']])) {
-                return $this->json(['error' => 'Ce pseudo est déjà utilisé'], 400);
-            }
-        }
+    public function create(Request $request): JsonResponse
+    {
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
 
         try {
-            $user = new User();
-            $user->setEmail($data['email']);
-
-            // Gestion du mot de passe
-            if (!empty($data['password'])) {
-                // Utiliser le mot de passe fourni par le frontend
-                $hashedPassword = $passwordHasher->hashPassword($user, $data['password']);
-                $user->setPassword($hashedPassword);
-                $tempPassword = null; // Pas de mot de passe temporaire
-            } else {
-                // Générer un mot de passe temporaire si aucun n'est fourni
-                $tempPassword = bin2hex(random_bytes(8));
-                $hashedPassword = $passwordHasher->hashPassword($user, $tempPassword);
-                $user->setPassword($hashedPassword);
+            $data = $this->getJsonData($request);
+            $createDto = new CreateUserDto($data);
+            $violations = $this->validator->validate($createDto);
+            if (count($violations) > 0) {
+                throw new ValidationFailedException($createDto, $violations);
             }
+            $user = $this->userService->createUser($createDto);
 
-            // Mettre à jour les autres données
-            $this->updateUserFromData($user, $data, $em);
+            return $this->json(UserJsonHelper::build($user), 201);
 
-            $em->persist($user);
-            $em->flush();
-
-            // Envoyer un email de bienvenue si demandé
-            if (!empty($data['sendWelcomeEmail']) && $data['sendWelcomeEmail'] && $mailer) {
-                $this->sendWelcomeEmail($user, $tempPassword, $mailer);
-            }
-
-            $response = [
-                'user' => UserJsonHelper::build($user),
-                'message' => 'Utilisateur créé avec succès'
-            ];
-
-            // Inclure le mot de passe temporaire seulement s'il a été généré
-            if ($tempPassword) {
-                $response['tempPassword'] = $tempPassword;
-            }
-
-            return $this->json($response, 201);
-
+        } catch (ValidationFailedException $e) {
+            return $this->handleValidationErrors($e);
         } catch (\Exception $e) {
-            return $this->json(['error' => $e->getMessage()], 400);
+            return $this->handleError($e, 'Erreur lors de la création de l\'utilisateur');
         }
     }
 
-    private function updateUserFromData(User $user, array $data, EntityManagerInterface $em): void
+    #[Route('/{id}', name: 'update', requirements: ['id' => '\d+'], methods: ['PUT'])]
+    public function update(int $id, Request $request): JsonResponse
     {
-        $allowedFields = [
-            'nom', 'prenom', 'telephone', 'dateNaissance',
-            'pseudo', 'isVerified', 'scoreFiabilite'
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
+
+        try {
+            $user = $this->findUserOr404($id);
+            $data = $this->getJsonData($request);
+            $updateDto = new UpdateUserDto($data);
+            $violations = $this->validator->validate($updateDto);
+            if (count($violations) > 0) {
+                throw new ValidationFailedException($updateDto, $violations);
+            }
+            $updatedUser = $this->userService->updateUser($user, $updateDto);
+ 
+            return $this->json(UserJsonHelper::build($updatedUser));
+
+        } catch (ValidationFailedException $e) {
+            return $this->handleValidationErrors($e);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Erreur lors de la mise à jour de l\'utilisateur', ['user_id' => $id]);
+        }
+    }
+
+    #[Route('/{id}', name: 'delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    public function delete(int $id): JsonResponse
+    {
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
+
+        try {
+            $user = $this->findUserOr404($id);
+            
+            if ($this->isSelfDeletion($user)) {
+                return $this->json(['error' => 'Vous ne pouvez pas supprimer votre propre compte'], 403);
+            }
+
+            $this->userService->deleteUser($user);
+
+            return $this->json(['message' => 'Utilisateur supprimé avec succès']);
+
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Erreur lors de la suppression de l\'utilisateur', ['user_id' => $id]);
+        }
+    }
+
+    #[Route('/bulk-delete', name: 'bulk_delete', methods: ['DELETE'])]
+    public function bulkDelete(Request $request): JsonResponse
+    {
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
+
+        try {
+            $data = $this->getJsonData($request);
+            $ids = $data['ids'] ?? [];
+
+            if (!$this->isValidIdArray($ids)) {
+                return $this->json(['error' => 'IDs invalides fournis'], 422);
+            }
+
+            if (count($ids) > self::MAX_BULK_LIMIT) {
+                return $this->json(['error' => "Maximum " . self::MAX_BULK_LIMIT . " utilisateurs à la fois"], 422);
+            }
+
+            $deletedCount = $this->userService->bulkDeleteUsers($ids, $this->getUser());
+
+            return $this->json([
+                'message' => "$deletedCount utilisateur(s) supprimé(s)",
+                'deletedCount' => $deletedCount
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Erreur lors de la suppression en masse');
+        }
+    }
+
+    #[Route('/stats', name: 'stats', methods: ['GET'])]
+    public function stats(): JsonResponse
+    {
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
+
+        try {
+            $stats = $this->userRepository->getUserStats();
+            return $this->json($stats);
+
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Erreur lors de la récupération des statistiques');
+        }
+    }
+
+    #[Route('/recent', name: 'recent', methods: ['GET'])]
+    public function recent(Request $request): JsonResponse
+    {
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
+
+        try {
+            $limit = min(self::MAX_RECENT_LIMIT, max(1, (int) $request->query->get('limit', 10)));
+            $users = $this->userRepository->findRecentUsers($limit);
+
+            return $this->json(array_map([UserJsonHelper::class, 'build'], $users));
+
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Erreur lors de la récupération des utilisateurs récents');
+        }
+    }
+
+    // ✅ Méthodes privées pour la lisibilité
+    private function createFilterDto(Request $request): UserFilterDto
+    {
+        return new UserFilterDto(
+            $request->query->get('search', ''),
+            max(1, (int) $request->query->get('page', 1)),
+            min(50, max(1, (int) $request->query->get('limit', 10))),
+            $request->query->get('sortField', 'id'),
+            $request->query->get('sortOrder', 'asc'),
+            $request->query->get('role'),
+            $request->query->get('statut')
+        );
+    }
+
+    private function buildPaginationData(array $result, UserFilterDto $filterDto): array
+    {
+        $totalPages = ceil($result['total'] / $filterDto->limit);
+        
+        return [
+            'total' => $result['total'],
+            'page' => $filterDto->page,
+            'limit' => $filterDto->limit,
+            'totalPages' => $totalPages,
+            'hasNext' => $filterDto->page < $totalPages,
+            'hasPrev' => $filterDto->page > 1
         ];
-
-        foreach ($allowedFields as $field) {
-            if (!array_key_exists($field, $data)) {
-                continue;
-            }
-
-            $value = $data[$field];
-
-            // Traitement spécial pour la date de naissance
-            if ($field === 'dateNaissance' && is_string($value)) {
-                if (empty($value)) {
-                    $value = null;
-                } else {
-                    try {
-                        $value = new \DateTime($value);
-                    } catch (\Exception $e) {
-                        throw new \InvalidArgumentException('Format de date invalide pour dateNaissance');
-                    }
-                }
-            }
-
-            // Validation du score de fiabilité
-            if ($field === 'scoreFiabilite' && $value !== null && ($value < 0 || $value > 100)) {
-                throw new \InvalidArgumentException('Le score de fiabilité doit être entre 0 et 100');
-            }
-
-            // Traitement spécial pour isVerified
-            if ($field === 'isVerified') {
-                $value = (bool) $value;
-            }
-
-            $setter = 'set' . ucfirst($field);
-            if (method_exists($user, $setter)) {
-                $user->$setter($value);
-            }
-        }
-
-        // Gestion des rôles
-        if (isset($data['roles']) && is_array($data['roles'])) {
-            $validRoles = ['ROLE_USER', 'ROLE_ADMIN', 'ROLE_MODERATOR', 'ROLE_SUPER_ADMIN'];
-            $roles = array_intersect($data['roles'], $validRoles);
-            if (!empty($roles)) {
-                // S'assurer qu'au moins ROLE_USER est présent
-                if (!in_array('ROLE_USER', $roles)) {
-                    $roles[] = 'ROLE_USER';
-                }
-                $user->setRoles($roles);
-            }
-        } else {
-            // Rôle par défaut
-            $user->setRoles(['ROLE_USER']);
-        }
-
-        // Gestion du statut
-        if (isset($data['statut']) && method_exists($user, 'setStatut')) {
-            $enum = \App\Enum\Statut::tryFrom($data['statut']);
-            if ($enum) {
-                $user->setStatut($enum);
-            }
-        }
-
-        // Mise à jour de l'email si fourni (avec vérification d'unicité)
-        if (isset($data['email']) && $data['email'] !== $user->getEmail()) {
-            $existingUser = $em->getRepository(User::class)->findOneBy(['email' => $data['email']]);
-            if ($existingUser && $existingUser !== $user) {
-                throw new \InvalidArgumentException('Cet email est déjà utilisé');
-            }
-            $user->setEmail($data['email']);
-        }
-
-        // Gestion de la vérification d'email
-        if (isset($data['isVerified']) && $data['isVerified']) {
-            $user->setIsVerified(true);
-            if (method_exists($user, 'setVerifiedAt')) {
-                $user->setVerifiedAt(new \DateTime());
-            }
-        }
     }
 
-    private function sendWelcomeEmail(User $user, ?string $tempPassword, MailerInterface $mailer): void
+    private function findUserOr404(int $id): User
     {
-        // Implémentation de l'envoi d'email de bienvenue
-        // Exemple basique - à adapter selon votre système d'email
-
-        /*
-        use Symfony\Component\Mime\Email;
-
-        $email = (new Email())
-            ->from('noreply@votre-site.com')
-            ->to($user->getEmail())
-            ->subject('Bienvenue sur notre plateforme')
-            ->html($this->renderView('emails/welcome.html.twig', [
-                'user' => $user,
-                'tempPassword' => $tempPassword
-            ]));
-
-        try {
-            $mailer->send($email);
-        } catch (\Exception $e) {
-            // Log l'erreur mais ne pas faire échouer la création
-            error_log('Erreur envoi email: ' . $e->getMessage());
+        $user = $this->userRepository->find($id);
+        if (!$user) {
+            throw $this->createNotFoundException('Utilisateur introuvable');
         }
-        */
+        return $user;
+    }
+
+    private function getJsonData(Request $request): array
+    {
+        $data = json_decode($request->getContent(), true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \InvalidArgumentException('JSON invalide');
+        }
+        return $data ?? [];
+    }
+
+    private function isValidIdArray(?array $ids): bool
+    {
+        return !empty($ids) 
+            && is_array($ids) 
+            && array_filter($ids, fn($id) => is_numeric($id) && $id > 0) === $ids;
+    }
+
+    private function isSelfDeletion(User $user): bool
+    {
+        return $user === $this->getUser();
+    }
+
+    private function handleValidationErrors(ValidationFailedException $exception): JsonResponse
+    {
+        $errors = [];
+        foreach ($exception->getViolations() as $violation) {
+            $errors[$violation->getPropertyPath()][] = $violation->getMessage();
+        }
+        $lines = [];
+        foreach ($errors as $field => $messages) {
+            foreach ($messages as $message) {
+                $lines[] = "$field: $message";
+            }
+        }
+        $error = join("\n", $lines);
+        return $this->json([
+            'violations' => $errors,
+            'error' => $error, 
+        ], 422);
+    }
+
+    private function handleError(\Exception $e, string $message, array $context = []): JsonResponse
+    {
+        $this->logger->error($message, array_merge($context, ['error' => $e->getMessage()]));
+
+        if ($e instanceof \InvalidArgumentException) {
+            return $this->json(['error' => $e->getMessage()], 422);
+        }
+
+        return $this->json(['error' => $message], 500);
     }
 }
