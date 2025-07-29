@@ -38,14 +38,16 @@ class CreateServicePublicDto
     #[Assert\Range(min: -180, max: 180, notInRangeMessage: 'Longitude invalide')]
     public ?float $longitude = null;
 
-    public ?string $horaires = null;
+    // 🚀 CHANGEMENT ICI : array au lieu de string
+    public ?array $horaires = null;
 
     public ?bool $accessibilite_pmr = null;
 
     #[Assert\Choice(choices: ['actif', 'ferme', 'travaux'], message: 'Statut invalide')]
     public string $statut = 'actif';
 
-    public ?string $type_service = null;
+    #[Assert\NotBlank(message: 'La catégorie est obligatoire')]
+    public ?string $categorie = null;
 
     public ?string $source_donnees = 'admin';
 
@@ -74,7 +76,7 @@ class CreateServicePublicDto
             'horaires' => $this->horaires,
             'accessibilite_pmr' => $this->accessibilite_pmr,
             'statut' => $this->statut,
-            'type_service' => $this->type_service,
+            'categorie' => $this->categorie,
             'source_donnees' => $this->source_donnees,
         ];
     }

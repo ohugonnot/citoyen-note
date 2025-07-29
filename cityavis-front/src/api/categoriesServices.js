@@ -11,17 +11,6 @@ export const fetchCategoriesServices = async (params = {}) => {
   }
 }
 
-// Récupérer toutes les catégories actives (pour les dropdowns)
-export const fetchCategoriesServicesActives = async () => {
-  try {
-    const response = await apiClient.get('/api/admin/categories/actives')
-    return response.data
-  } catch (error) {
-    console.error('Erreur fetchCategoriesServicesActives:', error)
-    throw error
-  }
-}
-
 // Récupérer une catégorie de service par ID
 export const fetchCategorieServiceById = async (id) => {
   try {

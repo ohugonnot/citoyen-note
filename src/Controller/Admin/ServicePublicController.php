@@ -237,7 +237,7 @@ class ServicePublicController extends AbstractController
         return new ServicePublicFilterDto(
             $request->query->get('search', ''),
             max(1, (int) $request->query->get('page', 1)),
-            min(50, max(1, (int) $request->query->get('limit', 10))),
+            min(100, max(1, (int) $request->query->get('limit', 10))),
             $request->query->get('sortField', 'nom'),
             $request->query->get('sortOrder', 'asc'),
             $request->query->get('statut'),

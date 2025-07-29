@@ -129,7 +129,7 @@ class UserController extends AbstractController
         }
     }
 
-    #[Route('/bulk-delete', name: 'bulk_delete', methods: ['DELETE'])]
+    #[Route('/bulk/delete', name: 'bulk_delete', methods: ['DELETE'])]
     public function bulkDelete(Request $request): JsonResponse
     {
         $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);

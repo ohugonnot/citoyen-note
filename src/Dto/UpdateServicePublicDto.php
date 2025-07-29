@@ -34,14 +34,15 @@ class UpdateServicePublicDto
     #[Assert\Range(min: -180, max: 180, notInRangeMessage: 'Longitude invalide')]
     public ?float $longitude = null;
 
-    public ?string $horaires = null;
+    public ?array $horaires = null;
 
     public ?bool $accessibilite_pmr = null;
 
     #[Assert\Choice(choices: ['actif', 'ferme', 'travaux'], message: 'Statut invalide')]
     public ?string $statut = null;
 
-    public ?string $type_service = null;
+    #[Assert\NotBlank(message: 'La catégorie est obligatoire')]
+    public ?string $categorie = null;
 
     public function __construct(array $data = [])
     {
@@ -54,12 +55,21 @@ class UpdateServicePublicDto
 
     public function toArray(): array
     {
-        $result = [];
-        foreach (get_object_vars($this) as $key => $value) {
-            if ($value !== null) {
-                $result[$key] = $value;
-            }
-        }
-        return $result;
+        return [
+            'nom' => $this->nom,
+            'description' => $this->description,
+            'adresse' => $this->adresse,
+            'code_postal' => $this->code_postal,
+            'ville' => $this->ville,
+            'email' => $this->email,
+            'telephone' => $this->telephone,
+            'site_web' => $this->site_web,
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
+            'horaires' => $this->horaires,
+            'accessibilite_pmr' => $this->accessibilite_pmr,
+            'statut' => $this->statut,
+            'categorie' => $this->categorie,
+        ];
     }
 }

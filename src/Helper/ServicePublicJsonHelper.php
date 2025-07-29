@@ -6,13 +6,14 @@ use App\Entity\ServicePublic;
 
 class ServicePublicJsonHelper
 {
+
     public static function build(ServicePublic $service): array
     {
         return [
             'id' => $service->getId(),
             'nom' => $service->getNom(),
             'description' => $service->getDescription(),
-            'adresse_complete' => $service->getAdresseComplete(),
+            'adresse' => $service->getAdresseComplete(),
             'code_postal' => $service->getCodePostal(),
             'ville' => $service->getVille(),
             'telephone' => $service->getTelephone(),
@@ -26,7 +27,8 @@ class ServicePublicJsonHelper
             'source_donnees' => $service->getSourceDonnees(),
             'note_moyenne' => $service->getNoteMoyenne(),
             'nombre_evaluations' => $service->getNombreEvaluations(),
-            'categorie' => $service->getCategorie()?->getNom(),
+            'categorie' => $service->getCategorie()?->getId(),
+            'categorie_nom' => $service->getCategorie()?->getNom(),
             'createdAt' => $service->getCreatedAt()?->format('c'),
             'updatedAt' => $service->getUpdatedAt()?->format('c'),
         ];

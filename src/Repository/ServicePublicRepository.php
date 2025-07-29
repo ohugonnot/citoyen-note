@@ -64,10 +64,10 @@ class ServicePublicRepository extends ServiceEntityRepository
     public function search(string $terme): array
     {
         return $this->createQueryBuilder('sp')
-            ->leftJoin('sp.categorie', 'c')
+            ->leftJoin('sp.categorie', 'categorie')
             ->where('LOWER(sp.nom) LIKE LOWER(:terme)')
             ->orWhere('LOWER(sp.description) LIKE LOWER(:terme)')
-            ->orWhere('LOWER(c.nom) LIKE LOWER(:terme)')
+            ->orWhere('LOWER(categorie.nom) LIKE LOWER(:terme)')
             ->andWhere('sp.statut = :statut')
             ->setParameter('terme', '%' . $terme . '%')
             ->setParameter('statut', StatutService::ACTIF)
@@ -79,11 +79,11 @@ class ServicePublicRepository extends ServiceEntityRepository
     public function findServicesWithFilters(ServicePublicFilterDto $filterDto): array
     {
         $qb = $this->createQueryBuilder('sp')
-            ->leftJoin('sp.categorie', 'c');
+            ->leftJoin('sp.categorie', 'categorie');
 
         // Recherche
         if (!empty($filterDto->search)) {
-            $qb->andWhere('sp.nom LIKE :search OR sp.ville LIKE :search OR c.nom LIKE :search')
+            $qb->andWhere('sp.nom LIKE :search OR sp.ville LIKE :search OR categorie.nom LIKE :search')
             ->setParameter('search', '%' . $filterDto->search . '%');
         }
 
@@ -99,12 +99,13 @@ class ServicePublicRepository extends ServiceEntityRepository
         }
 
         if ($filterDto->categorie) {
-            $qb->andWhere('c.nom = :categorie')
-            ->setParameter('categorie', $filterDto->categorie);
+            $qb->andWhere('categorie.id = :categorie')
+            ->setParameter('categorie', $filterDto->categorie, is_string($filterDto->categorie) ? 'uuid' : null);
         }
 
-        // Tri
-        $qb->orderBy('sp.' . $filterDto->sortField, $filterDto->sortOrder);
+        // 🎯 Tri avec mapping des champs
+        $orderBy = $this->mapSortField($filterDto->sortField);
+        $qb->orderBy($orderBy, $filterDto->sortOrder);
 
         // Pagination
         $totalQuery = clone $qb;
@@ -116,7 +117,19 @@ class ServicePublicRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
 
-        return ['services' => $services, 'total' => $total];
+        return [
+            'services' => $services, 
+            'total' => $total
+        ];
+    }
+
+    private function mapSortField(string $sortField): string
+    {
+        return match($sortField) {
+            'categorie.nom', 'categorie_nom' => 'categorie.nom',
+            'nom', 'ville', 'statut', 'createdAt', 'updatedAt' => 'sp.' . $sortField,
+            default => 'sp.' . $sortField
+        };
     }
 
     public function getServiceStats(): array
@@ -146,9 +159,9 @@ class ServicePublicRepository extends ServiceEntityRepository
     {
         return $this->getEntityManager()
             ->getRepository(\App\Entity\CategorieService::class)
-            ->createQueryBuilder('c')
-            ->select('c.nom')
-            ->orderBy('c.nom', 'ASC')
+            ->createQueryBuilder('categorie')
+            ->select('categorie.nom')
+            ->orderBy('categorie.nom', 'ASC')
             ->getQuery()
             ->getArrayResult();
     }

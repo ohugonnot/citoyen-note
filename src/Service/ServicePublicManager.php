@@ -83,9 +83,8 @@ class ServicePublicManager
         $this->hydraterCoordonnees($service, $donnees);
         $this->hydraterHoraires($service, $donnees);
         $this->hydraterCategorie($service, $donnees);
-        
-        // Valeurs par défaut
-        $service->setStatut(StatutService::ACTIF);
+        $this->hydraterStatut($service, $donnees);
+
         $service->setSourceDonnees('import_api');
     }
 
@@ -93,6 +92,21 @@ class ServicePublicManager
     {
         if (isset($donnees['email']) && filter_var($donnees['email'], FILTER_VALIDATE_EMAIL)) {
             $service->setEmail($donnees['email']);
+        }
+    }
+
+    private function hydraterStatut(ServicePublic $service, array $donnees): void
+    {
+        if (isset($donnees['statut'])) {
+            try {
+                $statut = StatutService::from($donnees['statut']);
+                $service->setStatut($statut);
+            } catch (\ValueError $e) {
+                $service->setStatut(StatutService::ACTIF);
+            }
+        } else {
+            // Pas de statut fourni, utiliser ACTIF par défaut
+            $service->setStatut(StatutService::ACTIF);
         }
     }
 
@@ -110,24 +124,32 @@ class ServicePublicManager
     private function hydraterHoraires(ServicePublic $service, array $donnees): void
     {
         if (isset($donnees['horaires']) && !empty($donnees['horaires'])) {
-            $service->setHorairesOuverture([
-                'texte' => trim($donnees['horaires'])
-            ]);
+            
+            // 🎯 Si c'est déjà un array structuré (depuis le front)
+            if (is_array($donnees['horaires'])) {
+                $service->setHorairesOuverture($donnees['horaires']);
+            } 
+            // 🚀 Si c'est un string (compatibilité avec l'ancien système)
+            elseif (is_string($donnees['horaires'])) {
+                $service->setHorairesOuverture([
+                    'texte' => trim($donnees['horaires'])
+                ]);
+            }
         }
     }
 
     private function hydraterCategorie(ServicePublic $service, array $donnees): void
     {
-        if (!isset($donnees['type_service']) || empty($donnees['type_service'])) {
+        if (!isset($donnees['categorie']) || empty($donnees['categorie'])) {
             return;
         }
         
         // Rechercher ou créer la catégorie
-        $categorie = $this->categorieServiceRepository->findOneBy(['nom' => $donnees['type_service']]);
+        $categorie = $this->categorieServiceRepository->findOneBy(['id' => $donnees['categorie']]);
         
         if (!$categorie) {
             $categorie = new CategorieService();
-            $categorie->setNom($donnees['type_service']);
+            $categorie->setNom($donnees['categorie']);
             $this->entityManager->persist($categorie);
         }
         

@@ -13,7 +13,7 @@
           <div class="d-flex flex-column flex-md-row gap-2">
             <Button
               @click="refreshData"
-              :loading="loading"
+              :loading="serviceStore.isLoading"
               icon="pi pi-refresh"
               label="Actualiser"
               severity="secondary"
@@ -40,12 +40,12 @@
         </div>
 
         <!-- Statistiques -->
-        <div class="row g-3" v-if="stats">
+        <div class="row g-3" v-if="serviceStore.stats">
           <div class="col-6 col-md-3">
             <div class="card text-center h-100">
               <div class="card-body py-3">
                 <i class="pi pi-building text-primary fs-3 mb-2"></i>
-                <h5 class="card-title mb-1">{{ stats.total || 0 }}</h5>
+                <h5 class="card-title mb-1">{{ serviceStore.stats.total || 0 }}</h5>
                 <p class="card-text text-muted small mb-0">Total</p>
               </div>
             </div>
@@ -54,7 +54,7 @@
             <div class="card text-center h-100">
               <div class="card-body py-3">
                 <i class="pi pi-check-circle text-success fs-3 mb-2"></i>
-                <h5 class="card-title mb-1">{{ stats.actifs || 0 }}</h5>
+                <h5 class="card-title mb-1">{{ serviceStore.stats.actifs || 0 }}</h5>
                 <p class="card-text text-muted small mb-0">Actifs</p>
               </div>
             </div>
@@ -63,7 +63,9 @@
             <div class="card text-center h-100">
               <div class="card-body py-3">
                 <i class="pi pi-star text-warning fs-3 mb-2"></i>
-                <h5 class="card-title mb-1">{{ stats.note_moyenne?.toFixed(1) || 'N/A' }}</h5>
+                <h5 class="card-title mb-1">
+                  {{ serviceStore.stats.note_moyenne?.toFixed(1) || 'N/A' }}
+                </h5>
                 <p class="card-text text-muted small mb-0">Note moy.</p>
               </div>
             </div>
@@ -72,7 +74,7 @@
             <div class="card text-center h-100">
               <div class="card-body py-3">
                 <i class="pi pi-map-marker text-info fs-3 mb-2"></i>
-                <h5 class="card-title mb-1">{{ stats.villes || 0 }}</h5>
+                <h5 class="card-title mb-1">{{ serviceStore.stats.villes || 0 }}</h5>
                 <p class="card-text text-muted small mb-0">Villes</p>
               </div>
             </div>
@@ -82,98 +84,123 @@
     </div>
 
     <!-- Filtres et recherche -->
-    <div class="row mb-3">
-      <div class="col-12">
-        <div class="card">
-          <div class="card-body">
-            <!-- Toggle filtres sur mobile -->
-            <div class="d-md-none mb-3">
-              <Button
-                @click="showFilters = !showFilters"
-                :icon="showFilters ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
-                :label="showFilters ? 'Masquer les filtres' : 'Afficher les filtres'"
-                severity="secondary"
-                text
-                size="small"
-                class="w-100"
-              />
-            </div>
+    <div class="row g-3 mb-3">
+      <!-- Recherche -->
+      <div class="col-lg-4 col-md-6">
+        <div class="input-group">
+          <InputText
+            v-model="localFilters.search"
+            placeholder="Rechercher un service..."
+            class="form-control"
+            @input="onSearchChange"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+          />
+          <button type="button" class="btn btn-outline-primary" @input="debouncedSearch">
+            <i class="pi pi-search"></i>
+          </button>
+        </div>
+      </div>
 
-            <!-- Filtres -->
-            <div :class="['row g-3', { 'd-none d-md-flex': !showFilters }]">
-              <!-- Recherche -->
-              <div class="col-12 col-md-4">
-                <IconField>
-                  <InputIcon class="pi pi-search" />
-                  <InputText
-                    v-model="filters.search"
-                    placeholder="Rechercher un service..."
-                    class="w-100"
-                    @input="debouncedSearch"
-                  />
-                </IconField>
-              </div>
+      <!-- Filtres compacts -->
+      <div class="col-lg-4 col-md-6">
+        <div class="d-flex gap-2">
+          <!-- Statut -->
+          <Select
+            v-model="localFilters.statut"
+            :options="STATUT_OPTIONS"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Statut"
+            showClear
+            @change="onFilterChange"
+            class="flex-fill"
+            style="min-width: 120px"
+          />
 
-              <!-- Statut -->
-              <div class="col-6 col-md-2">
-                <Select
-                  v-model="filters.statut"
-                  :options="statutOptions"
-                  optionLabel="label"
-                  optionValue="value"
-                  placeholder="Tous les statuts"
-                  showClear
-                  @change="debouncedSearch"
-                  class="w-100"
-                />
-              </div>
+          <!-- Catégorie -->
+          <Select
+            v-model="localFilters.categorie"
+            :options="categorieStore.categoriesOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Catégorie"
+            showClear
+            @change="onFilterChange"
+            class="flex-fill"
+            style="min-width: 120px"
+          />
+        </div>
+      </div>
 
-              <!-- Ville -->
-              <div class="col-6 col-md-2">
-                <InputText
-                  v-model="filters.ville"
-                  @input="debouncedSearch"
-                  placeholder="Ville"
-                  class="w-100"
-                />
-              </div>
+      <!-- Actions rapides -->
+      <div class="col-lg-4 col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+          <!-- Note minimum -->
+          <div style="max-width: 175px">
+            <InputNumber
+              v-model="localFilters.note_min"
+              @input="onFilterChange"
+              placeholder="Note min."
+              :min="0"
+              :max="5"
+              :step="0.1"
+              :maxFractionDigits="1"
+              showButtons
+              buttonLayout="horizontal"
+              class="compact-input-number w-100"
+              size="small"
+            />
+          </div>
 
-              <div class="col-12 col-md-3">
-                <div style="max-width: 200px; overflow: hidden">
-                  <InputNumber
-                    v-model="filters.note_min"
-                    @input="debouncedSearch"
-                    placeholder="Note min."
-                    :min="0"
-                    :max="5"
-                    :step="0.1"
-                    :maxFractionDigits="1"
-                    showButtons
-                    buttonLayout="horizontal"
-                    class="w-100 compact-input-number"
-                  />
-                </div>
-              </div>
-
-              <!-- Actions -->
-              <div class="col-12 col-md-1">
-                <div class="d-flex justify-content-end">
-                  <Button
-                    @click="confirmBulkDelete"
-                    :disabled="selectedServices.length === 0"
-                    :class="'bt-remove'"
-                    icon="pi pi-trash"
-                    severity="danger"
-                    size="small"
-                    :title="
-                      selectedServices.length === 0
-                        ? 'Sélectionnez des services'
-                        : `Supprimer ${selectedServices.length} service(s)`
+          <!-- Actions à droite -->
+          <div class="d-flex gap-2 ms-auto">
+            <!-- Options d'affichage -->
+            <div class="dropdown">
+              <button
+                type="button"
+                class="btn btn-outline-secondary dropdown-toggle"
+                data-bs-toggle="dropdown"
+                title="Options d'affichage"
+              >
+                <i class="pi pi-cog"></i>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                  <h6 class="dropdown-header">Éléments par page</h6>
+                </li>
+                <li v-for="option in limitOptionsFormatted" :key="option.value">
+                  <button
+                    type="button"
+                    class="dropdown-item"
+                    :class="{ active: serviceStore.pagination.limit === option.value }"
+                    @click="
+                      () => {
+                        serviceStore.changeItemsPerPage(option.value)
+                      }
                     "
-                  />
-                </div>
-              </div>
+                  >
+                    {{ option.label }}
+                  </button>
+                </li>
+              </ul>
             </div>
+
+            <!-- Suppression en lot -->
+            <Button
+              @click="confirmBulkDelete"
+              :disabled="selectedServices.length === 0"
+              icon="pi pi-trash"
+              severity="danger"
+              size="small"
+              :title="
+                selectedServices.length === 0
+                  ? 'Sélectionnez des services'
+                  : `Supprimer ${selectedServices.length} service(s)`
+              "
+            />
           </div>
         </div>
       </div>
@@ -185,15 +212,15 @@
         <div class="card">
           <DataTable
             v-model:selection="selectedServices"
-            :value="services"
-            :loading="loading"
+            :value="serviceStore.services"
+            :loading="serviceStore.isLoading"
             :paginator="true"
-            :rows="pagination.limit"
-            :totalRecords="pagination.total"
+            :rows="serviceStore.pagination.limit"
+            :totalRecords="serviceStore.pagination.total"
             :lazy="true"
-            :first="(pagination.page - 1) * pagination.limit"
+            :first="(serviceStore.pagination.page - 1) * serviceStore.pagination.limit"
             :paginatorTemplate="paginatorTemplate"
-            :rowsPerPageOptions="[10, 25, 50, 100]"
+            :rowsPerPageOptions="limitOptions"
             :sortField="sorting.field"
             :sortOrder="sorting.order === 'asc' ? 1 : -1"
             :scrollable="true"
@@ -240,6 +267,20 @@
               </template>
             </Column>
 
+            <Column
+              field="categorie_nom"
+              header="Catégorie"
+              :sortable="true"
+              :sortField="'categorie.nom'"
+              :style="{ minWidth: '150px' }"
+            >
+              <template #body="{ data }">
+                <div class="d-flex flex-column">
+                  <span class="fw-medium">{{ data.categorie_nom }}</span>
+                </div>
+              </template>
+            </Column>
+
             <!-- Statut -->
             <Column field="statut" header="Statut" sortable :style="{ minWidth: '100px' }">
               <template #body="{ data }">
@@ -247,6 +288,8 @@
                   <i :class="getStatutIcon(data.statut)" class="me-1"></i>
                   {{ getStatutLabel(data.statut) }}
                 </Badge>
+                <br />
+                <small class="text-muted"> Modifié le {{ formatDate(data.updatedAt) }} </small>
               </template>
             </Column>
 
@@ -304,21 +347,6 @@
               </template>
             </Column>
 
-            <!-- Dernière modification -->
-            <Column field="updatedAt" header="Modifié" sortable :style="{ minWidth: '100px' }">
-              <template #body="{ data }">
-                <small class="text-muted">
-                  {{
-                    new Date(data.updatedAt).toLocaleDateString('fr-FR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: '2-digit',
-                    })
-                  }}
-                </small>
-              </template>
-            </Column>
-
             <!-- Actions -->
             <Column header="Actions" :exportable="false" :style="{ minWidth: '120px' }">
               <template #body="{ data }">
@@ -358,13 +386,13 @@
                 <h5 class="mt-3 mb-2">Aucun service trouvé</h5>
                 <p class="text-muted mb-3">
                   {{
-                    Object.values(filters).some((v) => v !== null && v !== '')
+                    hasActiveFilters
                       ? 'Aucun service ne correspond à vos critères de recherche.'
                       : 'Commencez par créer votre premier service public.'
                   }}
                 </p>
                 <Button
-                  v-if="!Object.values(filters).some((v) => v !== null && v !== '')"
+                  v-if="!hasActiveFilters"
                   @click="createService"
                   label="Créer un service"
                   icon="pi pi-plus"
@@ -473,22 +501,90 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { debounce } from 'lodash'
-import router from '@/router'
+import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
-import {
-  fetchServicesPublics,
-  deleteServicePublic,
-  bulkDeleteServicesPublics,
-  getServicesPublicsStats,
-} from '@/api/servicesPublics'
+import { useServicePublicStore } from '@/stores/servicePublicStore'
+import { useCategorieStore } from '@/stores/categorieServiceStore'
 
+const router = useRouter()
+
+// =============================================
+// CONSTANTES
+// =============================================
+const TOAST_CONFIG = {
+  SUCCESS: { severity: 'success', life: 3000 },
+  ERROR: { severity: 'error', life: 5000 },
+}
+
+const STATUT_CONFIG = {
+  actif: {
+    label: 'Actif',
+    icon: 'pi pi-check-circle',
+    class: 'bg-success text-white',
+  },
+  ferme: {
+    label: 'Fermé',
+    icon: 'pi pi-times-circle',
+    class: 'bg-danger text-white',
+  },
+  travaux: {
+    label: 'Travaux',
+    icon: 'pi pi-wrench',
+    class: 'bg-warning text-dark',
+  },
+}
+
+const STATUT_OPTIONS = [
+  { label: 'Tous les statuts', value: null },
+  ...Object.entries(STATUT_CONFIG).map(([value, config]) => ({
+    label: config.label,
+    value,
+  })),
+]
+
+const DEBOUNCE_DELAY = 300
+const DEFAULT_SORT = { field: 'nom', order: 'asc' }
+
+// =============================================
+// COMPOSABLES
+// =============================================
 const toast = useToast()
+const serviceStore = useServicePublicStore()
+const categorieStore = useCategorieStore()
+// =============================================
+// ÉTAT LOCAL UI
+// =============================================
+const selectedServices = ref([])
+const showImportModal = ref(false)
+const showDeleteModal = ref(false)
+const showBulkDeleteModal = ref(false)
+const serviceToDelete = ref(null)
+const sorting = ref({ ...DEFAULT_SORT })
 
-// Responsive breakpoints
+const limitOptions = ref([10, 25, 50, 100])
+
+const limitOptionsFormatted = computed(() => {
+  return limitOptions.value.map((value) => ({
+    label: `${value} par page`,
+    value: value,
+  }))
+})
+
+// Filtres locaux synchronisés avec le store
+const localFilters = ref({
+  search: '',
+  statut: null,
+  categorie: null,
+  note_min: null,
+})
+
+// =============================================
+// COMPUTED
+// =============================================
 const $screen = computed(() => {
-  if (typeof window === 'undefined') return {}
+  if (typeof window === 'undefined') return { mdAndUp: true }
   const width = window.innerWidth
   return {
     xs: width < 576,
@@ -500,48 +596,82 @@ const $screen = computed(() => {
   }
 })
 
-// État réactif
-const services = ref([])
-const selectedServices = ref([])
-const loading = ref(true)
-const error = ref(null)
-const stats = ref(null)
-const showFilters = ref(false)
-const showImportModal = ref(false)
-
-// Modales
-const showDeleteModal = ref(false)
-const showBulkDeleteModal = ref(false)
-const serviceToDelete = ref(null)
-
-// Options pour les dropdowns
-const statutOptions = [
-  { label: 'Actif', value: 'actif' },
-  { label: 'Fermé', value: 'ferme' },
-  { label: 'Travaux', value: 'travaux' },
-]
-
-// Filtres et pagination
-const filters = ref({
-  search: '',
-  statut: null,
-  ville: '',
-  note_min: null,
+const hasActiveFilters = computed(() => {
+  return Object.values(localFilters.value).some(
+    (value) => value !== null && value !== '' && value !== undefined,
+  )
 })
 
-const pagination = ref({
-  page: 1,
-  limit: 25,
-  total: 0,
-  totalPages: 0,
+const paginatorTemplate = computed(() => {
+  if ($screen.value.mdAndUp) {
+    return 'FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport'
+  }
+  return 'PrevPageLink PageLinks NextPageLink'
 })
 
-const sorting = ref({
-  field: 'nom',
-  order: 'asc',
-})
+// =============================================
+// FONCTIONS UTILITAIRES
+// =============================================
+const showToast = (type, summary, detail) => {
+  const config = TOAST_CONFIG[type] || TOAST_CONFIG.ERROR
+  toast.add({ ...config, summary, detail })
+}
 
-// Gestion de la sélection
+const getStatutConfig = (statut) => {
+  return (
+    STATUT_CONFIG[statut] || {
+      label: statut,
+      icon: 'pi pi-circle',
+      class: 'bg-secondary text-white',
+    }
+  )
+}
+
+const getStatutBadgeClass = (statut) => getStatutConfig(statut).class
+const getStatutLabel = (statut) => getStatutConfig(statut).label
+const getStatutIcon = (statut) => getStatutConfig(statut).icon
+
+const formatDate = (date) => {
+  return new Date(date).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  })
+}
+
+// =============================================
+// GESTION DES FILTRES ET SYNCHRONISATION
+// =============================================
+const syncFiltersToStore = () => {
+  const cleanFilters = Object.fromEntries(
+    Object.entries(localFilters.value).filter(([_, value]) => value !== undefined),
+  )
+  serviceStore.updateFilters(cleanFilters)
+}
+
+const debouncedSearch = debounce(async () => {
+  try {
+    syncFiltersToStore()
+
+    const searchParams = {
+      ...serviceStore.filters,
+      sortField: sorting.value.field,
+      sortOrder: sorting.value.order,
+      page: 1, // Reset à la page 1 lors de la recherche
+    }
+
+    await serviceStore.fetchServices(searchParams)
+  } catch (error) {
+    handleError('Erreur lors de la recherche', error)
+  }
+}, DEBOUNCE_DELAY)
+
+// =============================================
+// GESTIONNAIRES D'ÉVÉNEMENTS
+// =============================================
+const onSearchChange = () => debouncedSearch()
+const onFilterChange = () => debouncedSearch()
+
 const onSelectAll = (event) => {
   selectedServices.value = [...event.data]
 }
@@ -550,119 +680,42 @@ const onUnselectAll = () => {
   selectedServices.value = []
 }
 
-// Template de pagination plus explicite
-const paginatorTemplate = computed(() => {
-  if ($screen.value.mdAndUp) {
-    return 'FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport'
-  } else {
-    return 'PrevPageLink PageLinks NextPageLink'
-  }
-})
-
-// Fonctions principales
-const fetchServices = async () => {
-  loading.value = true
-
+const onPageChange = async (event) => {
   try {
-    const params = {
-      page: pagination.value.page,
-      limit: pagination.value.limit,
+    await serviceStore.fetchServices({
+      page: event.page + 1, // PrimeVue commence à 0, votre API à 1
+      limit: event.rows,
       sortField: sorting.value.field,
       sortOrder: sorting.value.order,
-      search: filters.value.search || undefined,
-      statut: filters.value.statut || undefined,
-      ville: filters.value.ville || undefined,
-      categorie: filters.value.categorie || undefined,
-      source: filters.value.source || undefined,
-    }
-
-    // Nettoyer les paramètres undefined
-    Object.keys(params).forEach((key) => {
-      if (params[key] === undefined || params[key] === null || params[key] === '') {
-        delete params[key]
-      }
     })
-
-    const apiResponse = await fetchServicesPublics(params)
-
-    services.value = apiResponse.data || []
-    if (apiResponse.pagination) {
-      pagination.value = {
-        page: apiResponse.pagination.page,
-        limit: apiResponse.pagination.limit,
-        total: apiResponse.pagination.total,
-        totalPages: apiResponse.pagination.totalPages,
-      }
-    }
-  } catch (err) {
-    console.error('[fetchServices] Erreur:', err)
-    error.value = err?.response?.data?.message || err?.message || 'Erreur lors du chargement'
-
-    // Reset en cas d'erreur
-    services.value = []
-    pagination.value.total = 0
-
-    // Afficher le toast d'erreur
-    toast.add({
-      severity: 'error',
-      summary: 'Erreur',
-      detail: error.value,
-      life: 5000,
-    })
-  } finally {
-    loading.value = false
-  }
-}
-
-const fetchStats = async () => {
-  try {
-    stats.value = await getServicesPublicsStats()
-  } catch (err) {
-    console.warn('[fetchStats] Erreur:', err)
-  }
-}
-
-// Gestion des événements DataTable
-const onPageChange = (event) => {
-  pagination.value.page = event.page + 1 // PrimeVue utilise un index basé sur 0
-  pagination.value.limit = event.rows
-  fetchServices()
-}
-
-const onSort = (event) => {
-  sorting.value.field = event.sortField
-  sorting.value.order = event.sortOrder === 1 ? 'asc' : 'desc'
-  pagination.value.page = 1 // Reset à la première page lors du tri
-  fetchServices()
-}
-
-// Recherche avec débounce
-const debouncedSearch = debounce(() => {
-  pagination.value.page = 1
-  fetchServices()
-}, 300)
-
-// Actualisation
-const refreshData = async () => {
-  loading.value = true
-  try {
-    await Promise.all([fetchServices(), fetchStats()])
   } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Erreur',
-      detail: "Impossible d'actualiser les données",
-      life: 3000,
-    })
-  } finally {
-    loading.value = false
+    handleError('Erreur lors du changement de page', error)
   }
 }
 
-// Actions sur les services
+const onSort = async (event) => {
+  try {
+    sorting.value = {
+      field: event.sortField,
+      order: event.sortOrder === 1 ? 'asc' : 'desc',
+    }
+
+    await serviceStore.fetchServices({
+      sortField: sorting.value.field,
+      sortOrder: sorting.value.order,
+    })
+  } catch (error) {
+    handleError('Erreur lors du tri', error)
+  }
+}
+
+// =============================================
+// ACTIONS CRUD
+// =============================================
 const createService = () => {
   router.push('/admin/services-publiques/create')
 }
+
 const viewService = (service) => {
   router.push(`/admin/services-publiques/${service.id}`)
 }
@@ -680,34 +733,14 @@ const deleteService = async () => {
   if (!serviceToDelete.value) return
 
   try {
-    await deleteServicePublic(serviceToDelete.value.id)
-    toast.add({
-      severity: 'success',
-      summary: 'Succès',
-      detail: 'Service supprimé avec succès',
-      life: 3000,
-    })
+    await serviceStore.deleteService(serviceToDelete.value.id)
 
-    // Supprimer de la liste locale
-    services.value = services.value.filter((s) => s.id !== serviceToDelete.value.id)
     selectedServices.value = selectedServices.value.filter((s) => s.id !== serviceToDelete.value.id)
-
-    // Actualiser si la page devient vide
-    if (services.value.length === 0 && pagination.value.page > 1) {
-      pagination.value.page--
-      await fetchServices()
-    }
-
-    showDeleteModal.value = false
-    serviceToDelete.value = null
+    refreshData()
+    showToast('SUCCESS', 'Succès', 'Service supprimé avec succès')
+    resetDeleteModal()
   } catch (error) {
-    console.error('[deleteService] Erreur:', error)
-    toast.add({
-      severity: 'error',
-      summary: 'Erreur',
-      detail: error?.response?.data?.message || 'Erreur lors de la suppression',
-      life: 5000,
-    })
+    handleError('Erreur lors de la suppression', error)
   }
 }
 
@@ -721,72 +754,78 @@ const bulkDelete = async () => {
 
   try {
     const ids = selectedServices.value.map((service) => service.id)
-    await bulkDeleteServicesPublics(ids)
+    await serviceStore.bulkDeleteServices(ids)
 
-    toast.add({
-      severity: 'success',
-      summary: 'Succès',
-      detail: `${selectedServices.value.length} service(s) supprimé(s)`,
-      life: 3000,
-    })
-
+    const count = selectedServices.value.length
     selectedServices.value = []
     showBulkDeleteModal.value = false
-    await fetchServices()
+    refreshData()
+    showToast('SUCCESS', 'Succès', `${count} service(s) supprimé(s)`)
   } catch (error) {
-    console.error('[bulkDelete] Erreur:', error)
-    toast.add({
-      severity: 'error',
-      summary: 'Erreur',
-      detail: 'Erreur lors de la suppression',
-      life: 5000,
+    handleError('Erreur lors de la suppression en masse', error)
+  }
+}
+
+const refreshData = async () => {
+  try {
+    await Promise.all([serviceStore.refreshServices(), serviceStore.fetchStats()])
+  } catch (error) {
+    handleError("Impossible d'actualiser les données", error)
+  }
+}
+
+// =============================================
+// GESTION D'ERREUR
+// =============================================
+const handleError = (message, error) => {
+  console.error(message, error)
+  const errorMessage = serviceStore.error || error?.message || message
+  showToast('ERROR', 'Erreur', errorMessage)
+}
+
+const resetDeleteModal = () => {
+  showDeleteModal.value = false
+  serviceToDelete.value = null
+}
+
+// =============================================
+// WATCHERS
+// =============================================
+watch(
+  () => serviceStore.filters,
+  (newFilters) => {
+    // Synchroniser les filtres du store vers les filtres locaux
+    Object.assign(localFilters.value, {
+      search: newFilters.search || '',
+      statut: newFilters.statut || null,
+      categorie: newFilters.categorie || null,
+      note_min: newFilters.note_min || null,
     })
-  }
-}
+  },
+  { deep: true },
+)
 
-// Fonctions utilitaires pour l'affichage
-const getStatutBadgeClass = (statut) => {
-  const classes = {
-    actif: 'bg-success text-white',
-    ferme: 'bg-danger text-white',
-    travaux: 'bg-warning text-dark',
+// =============================================
+// INITIALISATION
+// =============================================
+onMounted(async () => {
+  try {
+    await Promise.all([
+      categorieStore.fetchCategories(),
+      serviceStore.fetchServices({
+        ...DEFAULT_SORT,
+        sortField: sorting.value.field,
+        sortOrder: sorting.value.order,
+      }),
+      serviceStore.fetchStats(),
+    ])
+  } catch (error) {
+    handleError('Erreur lors du chargement initial', error)
   }
-  return classes[statut] || 'bg-secondary text-white'
-}
-
-const getStatutLabel = (statut) => {
-  const labels = {
-    actif: 'Actif',
-    ferme: 'Fermé',
-    travaux: 'Travaux',
-  }
-  return labels[statut] || statut
-}
-
-const getStatutIcon = (statut) => {
-  const icons = {
-    actif: 'pi pi-check-circle',
-    ferme: 'pi pi-times-circle',
-    travaux: 'pi pi-wrench',
-  }
-  return icons[statut] || 'pi pi-circle'
-}
-
-// Lifecycle
-onMounted(() => {
-  refreshData()
 })
 </script>
 
 <style scoped>
-.stats-card {
-  transition: transform 0.2s ease;
-}
-
-.stats-card:hover {
-  transform: translateY(-2px);
-}
-
 .rating-stars {
   font-size: 0.8rem;
 }

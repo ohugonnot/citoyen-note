@@ -81,6 +81,17 @@ const routes = [
       title: 'Ajouter un Service Public - CitoyenNote',
     },
   },
+  // Dans ton fichier de routes
+  {
+    path: '/admin/services-publiques/:id/edit',
+    name: 'EditService',
+    component: () => import('@/views/UpdateServicePublic.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Modifier un Service Public - CitoyenNote',
+    },
+  },
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',

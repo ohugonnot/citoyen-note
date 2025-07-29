@@ -8,10 +8,12 @@
             <div class="d-flex align-items-center justify-content-between">
               <div>
                 <h1 class="h3 mb-1 fw-bold text-primary">
-                  <i class="bi bi-plus-circle-fill me-2"></i>
-                  Nouveau service public
+                  <i class="bi bi-pencil-fill me-2"></i>
+                  Modifier le service public
                 </h1>
-                <p class="text-muted mb-0">Ajoutez un nouveau service public à la plateforme</p>
+                <p class="text-muted mb-0">
+                  {{ formData.nom || 'Chargement...' }}
+                </p>
               </div>
               <Button
                 label="Retour"
@@ -24,21 +26,52 @@
           </div>
         </div>
 
+        <!-- Loading state -->
+        <div v-if="loadingService" class="text-center py-5">
+          <ProgressSpinner />
+          <p class="mt-3 text-muted">Chargement du service...</p>
+        </div>
+
+        <!-- Error state -->
+        <div v-else-if="errorLoading" class="card border-0 shadow-sm">
+          <div class="card-body text-center py-5">
+            <i class="bi bi-exclamation-triangle text-warning" style="font-size: 3rem"></i>
+            <h3 class="mt-3">Service non trouvé</h3>
+            <p class="text-muted">Le service demandé n'existe pas ou n'est plus disponible.</p>
+            <Button
+              label="Retour à la liste"
+              icon="bi bi-arrow-left"
+              @click="$router.push('/admin/services-publiques')"
+            />
+          </div>
+        </div>
+
+        <!-- Form -->
         <ServiceForm
+          v-else
           :form-data="formData"
           :errors="errors"
           :loading="loading"
           @update-form-data="handleUpdateFormData"
-          @submit="creerService"
+          @submit="modifierService"
         >
           <template #actions>
-            <Button
-              label="Créer le service"
-              icon="bi bi-plus-circle"
-              type="submit"
-              :loading="loading"
-              :disabled="!formulaireValide"
-            />
+            <div class="d-flex gap-2">
+              <Button
+                label="Annuler"
+                icon="bi bi-x-circle"
+                severity="secondary"
+                outlined
+                @click="$router.push('/admin/services-publiques')"
+              />
+              <Button
+                label="Sauvegarder"
+                icon="bi bi-check-circle"
+                type="submit"
+                :loading="loading"
+                :disabled="!formulaireValide"
+              />
+            </div>
           </template>
         </ServiceForm>
       </div>
@@ -48,20 +81,26 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useServicePublicStore } from '@/stores/servicePublicStore'
 import ServiceForm from '@/components/ServiceForm.vue'
 
 // Composables
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const serviceStore = useServicePublicStore()
 
 // État réactif
 const loading = ref(false)
+const loadingService = ref(true)
+const errorLoading = ref(false)
 const errors = ref({})
+
+// ID du service à modifier
+const serviceId = route.params.id
 
 // Données du formulaire
 const formData = reactive({
@@ -81,7 +120,7 @@ const formData = reactive({
   horaires: {},
 })
 
-// 🎯 Validation du formulaire avec watch explicite
+// 🎯 Validation du formulaire
 const formulaireValide = computed(() => {
   return (
     formData.nom?.trim() !== '' &&
@@ -94,12 +133,60 @@ const formulaireValide = computed(() => {
 
 // 🚀 Handler pour la mise à jour des données
 const handleUpdateFormData = (newData) => {
-  // Mise à jour manuelle pour forcer la réactivité
+  console.log(newData)
   Object.keys(newData).forEach((key) => {
     formData[key] = newData[key]
   })
 }
 
+// 🎯 Chargement du service existant
+const chargerService = async () => {
+  if (!serviceId) return
+
+  loadingService.value = true
+  errorLoading.value = false
+
+  try {
+    // ✅ Appel direct de la méthode async
+    const service = await serviceStore.fetchServiceById(serviceId, true)
+
+    if (!service) {
+      errorLoading.value = true
+      return
+    }
+
+    // Hydratation du formulaire
+    Object.assign(formData, {
+      nom: service.nom || '',
+      description: service.description || '',
+      adresse: service.adresse || '',
+      code_postal: service.code_postal || '',
+      ville: service.ville || '',
+      latitude: service.latitude || null,
+      longitude: service.longitude || null,
+      telephone: service.telephone || '',
+      email: service.email || '',
+      site_web: service.site_web || '',
+      categorie: service.categorie || null,
+      accessibilite_pmr: service.accessibilite_pmr || false,
+      statut: service.statut || 'actif',
+      horaires: service.horaires_ouverture || {},
+    })
+  } catch (error) {
+    console.error('Erreur lors du chargement:', error)
+    errorLoading.value = true
+    toast.add({
+      severity: 'error',
+      summary: 'Erreur de chargement',
+      detail: 'Impossible de charger le service public',
+      life: 5000,
+    })
+  } finally {
+    loadingService.value = false
+  }
+}
+
+// 🎯 Validation du formulaire
 const validerFormulaire = () => {
   errors.value = {}
   let valide = true
@@ -155,7 +242,8 @@ const validerFormulaire = () => {
   return valide
 }
 
-const creerService = async () => {
+// 🚀 Modification du service
+const modifierService = async () => {
   if (!validerFormulaire()) {
     toast.add({
       severity: 'error',
@@ -170,12 +258,12 @@ const creerService = async () => {
 
   try {
     const payload = { ...formData }
-    const newService = await serviceStore.createService(payload)
+    await serviceStore.updateService(serviceId, payload)
 
     toast.add({
       severity: 'success',
-      summary: 'Service créé',
-      detail: 'Le service public a été créé avec succès',
+      summary: 'Service modifié',
+      detail: 'Le service public a été modifié avec succès',
       life: 4000,
     })
 
@@ -188,13 +276,24 @@ const creerService = async () => {
       severity: 'error',
       summary: 'Erreur',
       detail:
-        error?.response?.data?.error || error.message || 'Erreur lors de la création du service',
+        error?.response?.data?.error ||
+        error.message ||
+        'Erreur lors de la modification du service',
       life: 5000,
     })
   } finally {
     loading.value = false
   }
 }
+
+// 🎯 Chargement initial
+onMounted(() => {
+  if (!serviceId) {
+    router.push('/admin/services-publiques')
+    return
+  }
+  chargerService()
+})
 </script>
 
 <style scoped>
@@ -220,20 +319,6 @@ const creerService = async () => {
   border-color: var(--bs-success);
 }
 
-.card-header {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
-}
-
-@media (max-width: 768px) {
-  .container-fluid {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-
-  .card-body {
-    padding: 1rem !important;
-  }
-}
 /* Styles pour la carte */
 #leaflet-map {
   border-radius: 8px;
@@ -247,6 +332,15 @@ const creerService = async () => {
 
 /* Responsive */
 @media (max-width: 768px) {
+  .container-fluid {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .card-body {
+    padding: 1rem !important;
+  }
+
   #leaflet-map {
     height: 250px !important;
   }

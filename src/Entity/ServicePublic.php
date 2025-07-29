@@ -51,11 +51,11 @@ class ServicePublic
 
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 8, nullable: true)]
     #[Assert\Range(min: -90, max: 90)]
-    private ?float $latitude = null;
+    private ?string  $latitude = null;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 11, scale: 8, nullable: true)]
     #[Assert\Range(min: -180, max: 180)]
-    private ?float $longitude = null;
+    private ?string  $longitude = null;
 
     #[ORM\Column(length: 20, nullable: true)]
     #[Assert\Regex(pattern: '/^(?:\+33|0)[1-9](?:[0-9]{8})$/', message: 'Format de téléphone invalide')]
@@ -186,23 +186,23 @@ class ServicePublic
 
     public function getLatitude(): ?float
     {
-        return $this->latitude;
+        return $this->latitude !== null ? (float) $this->latitude : null;
     }
 
-    public function setLatitude(?float $latitude): static
+    public function setLatitude(?float $latitude): self
     {
-        $this->latitude = $latitude;
+        $this->latitude = $latitude !== null ? (string) $latitude : null;
         return $this;
     }
 
     public function getLongitude(): ?float
     {
-        return $this->longitude;
+        return $this->longitude !== null ? (float) $this->longitude : null;
     }
 
-    public function setLongitude(?float $longitude): static
+    public function setLongitude(?float $longitude): self
     {
-        $this->longitude = $longitude;
+        $this->longitude = $longitude !== null ? (string) $longitude : null;
         return $this;
     }
 

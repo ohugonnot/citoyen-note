@@ -4,7 +4,9 @@
       <!-- En-tête avec statistiques -->
       <div class="row mb-4">
         <div class="col-12">
-          <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center mb-3">
+          <div
+            class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center mb-3"
+          >
             <h1 class="h2 fw-bold text-dark mb-2 mb-lg-0">Gestion des utilisateurs</h1>
             <Button
               icon="pi pi-plus"
@@ -15,48 +17,43 @@
           </div>
 
           <!-- Statistiques responsive -->
-          <div class="row g-2 g-md-3" v-if="stats">
-            <div class="col-6 col-md-3 col-xl-auto">
-              <div class="stats-card bg-primary text-white p-3 rounded">
-                <div class="d-flex align-items-center">
-                  <i class="pi pi-users fs-4 me-2 d-none d-sm-inline"></i>
-                  <div>
-                    <div class="fs-5 fw-bold mb-0">{{ stats.total }}</div>
-                    <small class="opacity-75">Total</small>
-                  </div>
+          <div class="row g-3" v-if="stats">
+            <div class="col-6 col-md-3">
+              <div class="card text-center h-100">
+                <div class="card-body py-3">
+                  <i class="pi pi-users text-primary fs-3 mb-2"></i>
+                  <h5 class="card-title mb-1">{{ stats.total || 0 }}</h5>
+                  <p class="card-text text-muted small mb-0">Total</p>
                 </div>
               </div>
             </div>
-            <div class="col-6 col-md-3 col-xl-auto">
-              <div class="stats-card bg-success text-white p-3 rounded">
-                <div class="d-flex align-items-center">
-                  <i class="pi pi-check-circle fs-4 me-2 d-none d-sm-inline"></i>
-                  <div>
-                    <div class="fs-5 fw-bold mb-0">{{ stats.active }}</div>
-                    <small class="opacity-75">Actifs</small>
-                  </div>
+
+            <div class="col-6 col-md-3">
+              <div class="card text-center h-100">
+                <div class="card-body py-3">
+                  <i class="pi pi-check-circle text-success fs-3 mb-2"></i>
+                  <h5 class="card-title mb-1">{{ stats.active || 0 }}</h5>
+                  <p class="card-text text-muted small mb-0">Actifs</p>
                 </div>
               </div>
             </div>
-            <div class="col-6 col-md-3 col-xl-auto">
-              <div class="stats-card bg-info text-white p-3 rounded">
-                <div class="d-flex align-items-center">
-                  <i class="pi pi-shield fs-4 me-2 d-none d-sm-inline"></i>
-                  <div>
-                    <div class="fs-5 fw-bold mb-0">{{ stats.verified }}</div>
-                    <small class="opacity-75">Vérifiés</small>
-                  </div>
+
+            <div class="col-6 col-md-3">
+              <div class="card text-center h-100">
+                <div class="card-body py-3">
+                  <i class="pi pi-shield text-info fs-3 mb-2"></i>
+                  <h5 class="card-title mb-1">{{ stats.verified || 0 }}</h5>
+                  <p class="card-text text-muted small mb-0">Vérifiés</p>
                 </div>
               </div>
             </div>
-            <div class="col-6 col-md-3 col-xl-auto">
-              <div class="stats-card bg-warning text-dark p-3 rounded">
-                <div class="d-flex align-items-center">
-                  <i class="pi pi-calendar fs-4 me-2 d-none d-sm-inline"></i>
-                  <div>
-                    <div class="fs-5 fw-bold mb-0">{{ stats.thisMonth }}</div>
-                    <small class="opacity-75">Ce mois</small>
-                  </div>
+
+            <div class="col-6 col-md-3">
+              <div class="card text-center h-100">
+                <div class="card-body py-3">
+                  <i class="pi pi-calendar text-warning fs-3 mb-2"></i>
+                  <h5 class="card-title mb-1">{{ stats.thisMonth || 0 }}</h5>
+                  <p class="card-text text-muted small mb-0">Ce mois</p>
                 </div>
               </div>
             </div>
@@ -64,7 +61,6 @@
         </div>
       </div>
 
-      <!-- Barre d'actions principale -->
       <!-- Barre d'actions principale -->
       <div class="row g-3 mb-3">
         <!-- Recherche -->
@@ -98,9 +94,7 @@
 
         <!-- Actions rapides -->
         <div class="col-lg-4 col-md-6">
-          <label class="form-label fw-semibold text-dark mb-2 invisible">
-            Actions
-          </label>
+          <label class="form-label fw-semibold text-dark mb-2 invisible"> Actions </label>
           <div class="d-flex gap-2">
             <button
               type="button"
@@ -117,7 +111,7 @@
               type="button"
               class="btn btn-outline-info"
               @click="showFilters = !showFilters"
-              :class="{ 'active': showFilters }"
+              :class="{ active: showFilters }"
               title="Filtres avancés"
             >
               <i class="pi pi-filter"></i>
@@ -137,12 +131,17 @@
                 <li>
                   <h6 class="dropdown-header">Elements par page</h6>
                 </li>
-                <li v-for="option in limitOptions" :key="option.value">
+                <li v-for="option in limitOptionsFormatted" :key="option.value">
                   <button
                     type="button"
                     class="dropdown-item"
-                    :class="{ 'active': pagination.limit === option.value }"
-                    @click="() => { pagination.limit = option.value; handleLimitChange(); }"
+                    :class="{ active: pagination.limit === option.value }"
+                    @click="
+                      () => {
+                        pagination.limit = option.value
+                        handleLimitChange()
+                      }
+                    "
                   >
                     {{ option.label }}
                   </button>
@@ -164,7 +163,12 @@
               </label>
               <select
                 v-model="filters.role"
-                @change="() => { pagination.page = 1; fetchUsers(); }"
+                @change="
+                  () => {
+                    pagination.page = 1
+                    fetchUsers()
+                  }
+                "
                 class="form-select"
               >
                 <option value="">Tous les rôles</option>
@@ -181,7 +185,12 @@
               </label>
               <select
                 v-model="filters.statut"
-                @change="() => { pagination.page = 1; fetchUsers(); }"
+                @change="
+                  () => {
+                    pagination.page = 1
+                    fetchUsers()
+                  }
+                "
                 class="form-select"
               >
                 <option value="">Tous les statuts</option>
@@ -189,15 +198,10 @@
                   {{ statut.label }}
                 </option>
               </select>
-              
             </div>
 
             <div class="col-md-4 col-sm-12 d-flex align-items-end">
-              <button
-                type="button"
-                class="btn btn-outline-warning me-2"
-                @click="resetFilters"
-              >
+              <button type="button" class="btn btn-outline-warning me-2" @click="resetFilters">
                 <i class="pi pi-refresh me-1"></i>
                 Réinitialiser
               </button>
@@ -210,7 +214,9 @@
       <Transition name="fade">
         <div v-if="selectedUsers.length > 0" class="sticky-selection-bar">
           <div class="alert alert-primary mb-3 shadow-sm">
-            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+            <div
+              class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2"
+            >
               <div class="d-flex align-items-center">
                 <i class="pi pi-info-circle me-2"></i>
                 <strong>{{ selectedUsers.length }}</strong> utilisateur(s) sélectionné(s)
@@ -243,13 +249,25 @@
               v-model:selection="selectedUsers"
               :value="users"
               :loading="loading"
-              :paginator="false"
+              :paginator="true"
               responsiveLayout="scroll"
               rowHover
               dataKey="id"
               class="custom-datatable"
               selectionMode="multiple"
               @sort="onSort"
+              :rows="pagination.limit"
+              :totalRecords="pagination.total"
+              :first="(pagination.page - 1) * pagination.limit"
+              @page="onPageChange"
+              :template="paginatorTemplate"
+              :scrollable="true"
+              :resizableColumns="true"
+              columnResizeMode="expand"
+              :lazy="true"
+              :paginatorTemplate="paginatorTemplate"
+              :rowsPerPageOptions="limitOptions"
+              stripedRows
             >
               <Column selectionMode="multiple" headerStyle="width: 3rem" />
 
@@ -263,13 +281,18 @@
                 <template #body="slotProps">
                   <div class="d-flex align-items-center">
                     <div class="me-3">
-                      <div class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center">
+                      <div
+                        class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                      >
                         {{ getInitials(slotProps.data) }}
                       </div>
                     </div>
                     <div class="flex-grow-1">
                       <div class="fw-semibold text-dark">{{ slotProps.data.email }}</div>
-                      <div class="text-muted small" v-if="slotProps.data.nom || slotProps.data.prenom">
+                      <div
+                        class="text-muted small"
+                        v-if="slotProps.data.nom || slotProps.data.prenom"
+                      >
                         {{ slotProps.data.prenom }} {{ slotProps.data.nom }}
                       </div>
                       <div class="text-muted small" v-if="slotProps.data.pseudo">
@@ -277,7 +300,11 @@
                       </div>
                     </div>
                     <div v-if="slotProps.data.isVerified" class="ms-2">
-                      <i class="pi pi-verified text-success" title="Compte vérifié" style="font-size: 1.1rem;"></i>
+                      <i
+                        class="pi pi-verified text-success"
+                        title="Compte vérifié"
+                        style="font-size: 1.1rem"
+                      ></i>
                     </div>
                   </div>
                 </template>
@@ -294,7 +321,10 @@
                     >
                       {{ getRoleLabel(role) }}
                     </span>
-                    <span v-if="slotProps.data.roles?.length > 2" class="badge bg-light text-dark small">
+                    <span
+                      v-if="slotProps.data.roles?.length > 2"
+                      class="badge bg-light text-dark small"
+                    >
                       +{{ slotProps.data.roles.length - 2 }}
                     </span>
                   </div>
@@ -328,7 +358,7 @@
               <Column field="scoreFiabilite" header="Fiabilité" sortable style="width: 140px">
                 <template #body="slotProps">
                   <div v-if="slotProps.data.scoreFiabilite !== null" class="text-center">
-                    <div class="progress mb-1" style="height: 8px;">
+                    <div class="progress mb-1" style="height: 8px">
                       <div
                         class="progress-bar"
                         :class="getScoreProgressClass(slotProps.data.scoreFiabilite)"
@@ -362,7 +392,7 @@
 
               <template #empty>
                 <div class="text-center py-5">
-                  <i class="pi pi-users" style="font-size: 3rem; color: #6c757d;"></i>
+                  <i class="pi pi-users" style="font-size: 3rem; color: #6c757d"></i>
                   <h5 class="text-muted mt-3">Aucun utilisateur trouvé</h5>
                   <p class="text-muted">Essayez de modifier vos critères de recherche</p>
                 </div>
@@ -385,7 +415,7 @@
             </div>
 
             <div v-else-if="users.length === 0" class="text-center py-5">
-              <i class="pi pi-users" style="font-size: 3rem; color: #6c757d;"></i>
+              <i class="pi pi-users" style="font-size: 3rem; color: #6c757d"></i>
               <h5 class="text-muted mt-3">Aucun utilisateur trouvé</h5>
             </div>
 
@@ -417,9 +447,7 @@
                         <div v-if="user.nom || user.prenom" class="text-muted small mb-1">
                           {{ user.prenom }} {{ user.nom }}
                         </div>
-                        <div v-if="user.pseudo" class="text-muted small">
-                          @{{ user.pseudo }}
-                        </div>
+                        <div v-if="user.pseudo" class="text-muted small">@{{ user.pseudo }}</div>
                       </div>
                       <span class="badge bg-secondary small">#{{ user.id }}</span>
                     </div>
@@ -428,23 +456,23 @@
                     <div class="user-meta-actions">
                       <div class="user-metadata">
                         <div class="d-flex flex-wrap gap-2 small mb-3 mb-md-0">
-                <span :class="getStatutBadgeClass(user.statut)" class="badge badge-sm">
-                  <i :class="getStatutIcon(user.statut)" class="me-1"></i>
-                  {{ getStatutLabel(user.statut) }}
-                </span>
-                <span
-                  v-if="user.roles?.length"
-                  v-for="role in user.roles.slice(0, 1)"
-                  :key="role"
-                  :class="getRoleBadgeClass(role)"
-                  class="badge badge-sm"
-                >
-                  {{ getRoleLabel(role) }}
-                </span>
+                          <span :class="getStatutBadgeClass(user.statut)" class="badge badge-sm">
+                            <i :class="getStatutIcon(user.statut)" class="me-1"></i>
+                            {{ getStatutLabel(user.statut) }}
+                          </span>
+                          <span
+                            v-if="user.roles?.length"
+                            v-for="role in user.roles.slice(0, 1)"
+                            :key="role"
+                            :class="getRoleBadgeClass(role)"
+                            class="badge badge-sm"
+                          >
+                            {{ getRoleLabel(role) }}
+                          </span>
                           <span v-if="user.scoreFiabilite !== null" class="text-muted">
-                  <i class="pi pi-star-fill me-1"></i>
-                  {{ user.scoreFiabilite }}%
-                </span>
+                            <i class="pi pi-star-fill me-1"></i>
+                            {{ user.scoreFiabilite }}%
+                          </span>
                         </div>
                       </div>
 
@@ -467,33 +495,6 @@
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Pagination responsive -->
-        <div v-if="pagination.totalPages > 1" class="card-footer bg-light">
-          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
-            <div class="text-muted small text-center text-sm-start order-2 order-sm-1">
-              <span class="d-inline d-sm-none">
-                {{ ((pagination.page - 1) * pagination.limit) + 1 }}-{{ Math.min(pagination.page * pagination.limit, pagination.total) }} / {{ pagination.total }}
-              </span>
-              <span class="d-none d-sm-inline">
-                Affichage de <strong>{{ ((pagination.page - 1) * pagination.limit) + 1 }}</strong> à
-                <strong>{{ Math.min(pagination.page * pagination.limit, pagination.total) }}</strong> sur
-                <strong>{{ pagination.total }}</strong> utilisateurs
-              </span>
-            </div>
-            <div class="order-1 order-sm-2">
-              <Paginator
-                :rows="pagination.limit"
-                :totalRecords="pagination.total"
-                :first="(pagination.page - 1) * pagination.limit"
-                @page="onPageChange"
-                :template="paginatorTemplate"
-                class="custom-paginator"
-              />
             </div>
           </div>
         </div>
@@ -560,13 +561,21 @@
             <i class="pi pi-exclamation-triangle" style="font-size: 2rem"></i>
           </div>
           <div class="flex-grow-1">
-            <h6 class="fw-semibold mb-2">Suppression de {{ selectedUsers.length }} utilisateur(s)</h6>
-            <p class="text-muted mb-3">Les utilisateurs suivants seront définitivement supprimés :</p>
+            <h6 class="fw-semibold mb-2">
+              Suppression de {{ selectedUsers.length }} utilisateur(s)
+            </h6>
+            <p class="text-muted mb-3">
+              Les utilisateurs suivants seront définitivement supprimés :
+            </p>
           </div>
         </div>
 
-        <div class="bg-light p-3 rounded mb-3" style="max-height: 250px; overflow-y: auto;">
-          <div v-for="user in selectedUsers.slice(0, 10)" :key="user.id" class="d-flex align-items-center mb-3">
+        <div class="bg-light p-3 rounded mb-3" style="max-height: 250px; overflow-y: auto">
+          <div
+            v-for="user in selectedUsers.slice(0, 10)"
+            :key="user.id"
+            class="d-flex align-items-center mb-3"
+          >
             <div class="avatar-circle-sm bg-secondary text-white me-3 flex-shrink-0">
               {{ getInitials(user) }}
             </div>
@@ -577,7 +586,10 @@
               </div>
             </div>
           </div>
-          <div v-if="selectedUsers.length > 10" class="text-muted text-center small border-top pt-2">
+          <div
+            v-if="selectedUsers.length > 10"
+            class="text-muted text-center small border-top pt-2"
+          >
             ... et {{ selectedUsers.length - 10 }} autre(s)
           </div>
         </div>
@@ -608,17 +620,13 @@
       <!-- Toast pour les notifications -->
       <Toast position="top-center" />
     </div>
-    <CreateUserModal
-      v-model:visible="showCreateUserModal"
-      @user-created="onUserCreated"
-    />
+    <CreateUserModal v-model:visible="showCreateUserModal" @user-created="onUserCreated" />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { debounce } from 'lodash'
-import router from '@/router'
 import { useToast } from 'primevue/usetoast'
 import {
   fetchUsers as fetchAllUsers,
@@ -626,8 +634,12 @@ import {
   bulkDeleteUsers,
   getUserStats,
 } from '@/api/users'
+import { useRouter } from 'vue-router'
 
-import CreateUserModal from "@/views/CreateUser.vue";
+import CreateUserModal from '@/views/CreateUser.vue'
+
+const router = useRouter()
+
 // Composables
 const toast = useToast()
 
@@ -676,15 +688,15 @@ const pagination = ref({
 
 const sorting = ref({
   field: 'id',
-  order: 'asc'
+  order: 'asc',
 })
 
 // Template de pagination responsive
 const paginatorTemplate = computed(() => {
   if ($screen.value.mdAndUp) {
-    return "FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink"
+    return 'FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport'
   } else {
-    return "PrevPageLink PageLinks NextPageLink"
+    return 'PrevPageLink PageLinks NextPageLink'
   }
 })
 
@@ -699,15 +711,17 @@ const roleOptions = [
 const statutOptions = [
   { label: 'Actif', value: 'actif' },
   { label: 'Suspendu', value: 'suspendu' },
-  { label: 'Supprimé', value: 'supprime' }
+  { label: 'Supprimé', value: 'supprime' },
 ]
 
-const limitOptions = [
-  { label: '10 par page', value: 10 },
-  { label: '25 par page', value: 25 },
-  { label: '50 par page', value: 50 },
-  { label: '100 par page', value: 100 },
-]
+const limitOptions = ref([10, 25, 50, 100])
+
+const limitOptionsFormatted = computed(() => {
+  return limitOptions.value.map((value) => ({
+    label: `${value} par page`,
+    value: value,
+  }))
+})
 
 // Fonctions utilitaires pour l'affichage
 const getInitials = (user) => {
@@ -722,47 +736,47 @@ const getInitials = (user) => {
 
 const getRoleBadgeClass = (role) => {
   const classes = {
-    'ROLE_SUPER_ADMIN': 'bg-danger text-white',
-    'ROLE_ADMIN': 'bg-warning text-dark',
-    'ROLE_MODERATOR': 'bg-info text-white',
-    'ROLE_USER': 'bg-secondary text-white'
+    ROLE_SUPER_ADMIN: 'bg-danger text-white',
+    ROLE_ADMIN: 'bg-warning text-dark',
+    ROLE_MODERATOR: 'bg-info text-white',
+    ROLE_USER: 'bg-secondary text-white',
   }
   return classes[role] || 'bg-light text-dark'
 }
 
 const getRoleLabel = (role) => {
   const labels = {
-    'ROLE_SUPER_ADMIN': 'Super',
-    'ROLE_ADMIN': 'Admin',
-    'ROLE_MODERATOR': 'Mod',
-    'ROLE_USER': 'User'
+    ROLE_SUPER_ADMIN: 'Super',
+    ROLE_ADMIN: 'Admin',
+    ROLE_MODERATOR: 'Mod',
+    ROLE_USER: 'User',
   }
   return labels[role] || role
 }
 
 const getStatutBadgeClass = (statut) => {
   const classes = {
-    'actif': 'bg-success text-white',
-    'suspendu': 'bg-warning text-dark',
-    'supprime': 'bg-danger text-white'
+    actif: 'bg-success text-white',
+    suspendu: 'bg-warning text-dark',
+    supprime: 'bg-danger text-white',
   }
   return classes[statut] || 'bg-secondary text-white'
 }
 
 const getStatutLabel = (statut) => {
   const labels = {
-    'actif': 'Actif',
-    'suspendu': 'Suspendu',
-    'supprime': 'Supprimé'
+    actif: 'Actif',
+    suspendu: 'Suspendu',
+    supprime: 'Supprimé',
   }
   return labels[statut] || statut
 }
 
 const getStatutIcon = (statut) => {
   const icons = {
-    'actif': 'pi pi-check-circle',
-    'suspendu': 'pi pi-pause-circle',
-    'supprime': 'pi pi-times-circle'
+    actif: 'pi pi-check-circle',
+    suspendu: 'pi pi-pause-circle',
+    supprime: 'pi pi-times-circle',
   }
   return icons[statut] || 'pi pi-circle'
 }
@@ -803,11 +817,11 @@ const fetchUsers = async () => {
       limit: pagination.value.limit,
       sortBy: sorting.value.field,
       sortOrder: sorting.value.order,
-      ...filters.value
+      ...filters.value,
     }
 
     // Nettoyer les paramètres vides
-    Object.keys(params).forEach(key => {
+    Object.keys(params).forEach((key) => {
       if (params[key] === null || params[key] === '') {
         delete params[key]
       }
@@ -818,10 +832,8 @@ const fetchUsers = async () => {
     users.value = response.data || []
     pagination.value = {
       ...pagination.value,
-      total: response.total || 0,
-      totalPages: Math.ceil((response.total || 0) / pagination.value.limit)
+      ...response.pagination,
     }
-
   } catch (err) {
     console.error('[fetchUsers] Erreur:', err)
     error.value = err?.response?.data?.message || 'Erreur lors du chargement des utilisateurs'
@@ -829,7 +841,7 @@ const fetchUsers = async () => {
       severity: 'error',
       summary: 'Erreur',
       detail: error.value,
-      life: 5000
+      life: 5000,
     })
   } finally {
     loading.value = false
@@ -856,7 +868,7 @@ const resetFilters = () => {
 
 // Recherche avec débounce
 // Fonction de recherche améliorée
-const debouncedSearch = debounce((event) => {
+const debouncedSearch = debounce(() => {
   // Réinitialiser la page lors d'une nouvelle recherche
   pagination.value.page = 1
   fetchUsers()
@@ -866,22 +878,14 @@ const debouncedSearch = debounce((event) => {
 const refreshData = async () => {
   loading.value = true
   try {
-    await Promise.all([
-      fetchUsers(),
-      fetchStats()
-    ])
-    toast.add({
-      severity: 'success',
-      summary: 'Actualisé',
-      detail: 'Les données ont été mises à jour',
-      life: 2000
-    })
+    await Promise.all([fetchUsers(), fetchStats()])
   } catch (error) {
+    console.error('[refreshData] Erreur:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
-      detail: 'Impossible d\'actualiser les données',
-      life: 3000
+      detail: "Impossible d'actualiser les données",
+      life: 3000,
     })
   } finally {
     loading.value = false
@@ -905,11 +909,8 @@ const handleLimitChange = () => {
   fetchUsers()
 }
 
-const viewUser = (user) => {
-  router.push(`/admin/users/${user.id}`)
-}
-
 const editUser = (user) => {
+  console.log(user)
   router.push(`/admin/users/${user.id}/edit`)
 }
 
@@ -927,23 +928,22 @@ const deleteUser = async () => {
       severity: 'success',
       summary: 'Succès',
       detail: 'Utilisateur supprimé avec succès',
-      life: 3000
+      life: 3000,
     })
 
     // Supprimer de la liste locale
-    users.value = users.value.filter(u => u.id !== userToDelete.value.id)
-    selectedUsers.value = selectedUsers.value.filter(u => u.id !== userToDelete.value.id)
+    users.value = users.value.filter((u) => u.id !== userToDelete.value.id)
+    selectedUsers.value = selectedUsers.value.filter((u) => u.id !== userToDelete.value.id)
 
     // Mettre à jour les stats
     await fetchStats()
-
   } catch (err) {
     console.error('[deleteUser] Erreur:', err)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
       detail: err?.response?.data?.message || 'Échec de la suppression',
-      life: 5000
+      life: 5000,
     })
   } finally {
     showDeleteModal.value = false
@@ -960,14 +960,14 @@ const bulkDelete = async () => {
   if (selectedUsers.value.length === 0) return
 
   try {
-    const ids = selectedUsers.value.map(user => user.id)
+    const ids = selectedUsers.value.map((user) => user.id)
     const result = await bulkDeleteUsers(ids)
 
     toast.add({
       severity: 'success',
       summary: 'Succès',
       detail: `${result.deletedCount} utilisateur(s) supprimé(s)`,
-      life: 3000
+      life: 3000,
     })
 
     // Recharger les données
@@ -975,14 +975,13 @@ const bulkDelete = async () => {
     await fetchStats()
 
     selectedUsers.value = []
-
   } catch (err) {
     console.error('[bulkDelete] Erreur:', err)
     toast.add({
       severity: 'error',
       summary: 'Erreur',
       detail: err?.response?.data?.message || 'Échec de la suppression en masse',
-      life: 5000
+      life: 5000,
     })
   } finally {
     showBulkDeleteModal.value = false
@@ -1004,10 +1003,7 @@ const onUserCreated = () => {
 
 // Cycle de vie
 onMounted(async () => {
-  await Promise.all([
-    fetchUsers(),
-    fetchStats()
-  ])
+  await Promise.all([fetchUsers(), fetchStats()])
 })
 </script>
 
@@ -1030,19 +1026,6 @@ onMounted(async () => {
 .container-fluid {
   max-width: 1400px;
   background-color: white;
-}
-
-/* Cartes de statistiques */
-.stats-card {
-  transition: var(--transition);
-  border: none;
-  box-shadow: var(--box-shadow);
-  background-color: white;
-}
-
-.stats-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }
 
 /* Navigation sticky pour la sélection */
@@ -1152,14 +1135,6 @@ onMounted(async () => {
 
 .progress-bar {
   transition: width 0.3s ease;
-}
-
-/* Cards personnalisées */
-.card {
-  border: none;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  background-color: white;
 }
 
 .card:hover {
@@ -1295,16 +1270,6 @@ onMounted(async () => {
     background-color: white;
   }
 
-  .stats-card {
-    padding: 0.75rem !important;
-    background-color: white;
-  }
-
-  .card-body {
-    padding: 1rem !important;
-    background-color: white;
-  }
-
   .user-card {
     padding: 1rem !important;
     background-color: white;
@@ -1390,8 +1355,12 @@ onMounted(async () => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Alignement des boutons */
@@ -1605,5 +1574,4 @@ onMounted(async () => {
     flex-direction: column;
   }
 }
-
 </style>
