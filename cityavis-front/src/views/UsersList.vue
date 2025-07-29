@@ -117,37 +117,6 @@
               <i class="pi pi-filter"></i>
               <span class="d-none d-lg-inline ms-2">Filtres</span>
             </button>
-
-            <div class="dropdown">
-              <button
-                type="button"
-                class="btn btn-outline-secondary dropdown-toggle"
-                data-bs-toggle="dropdown"
-                title="Options d'affichage"
-              >
-                <i class="pi pi-cog"></i>
-              </button>
-              <ul class="dropdown-menu dropdown-menu-end">
-                <li>
-                  <h6 class="dropdown-header">Elements par page</h6>
-                </li>
-                <li v-for="option in limitOptionsFormatted" :key="option.value">
-                  <button
-                    type="button"
-                    class="dropdown-item"
-                    :class="{ active: pagination.limit === option.value }"
-                    @click="
-                      () => {
-                        pagination.limit = option.value
-                        handleLimitChange()
-                      }
-                    "
-                  >
-                    {{ option.label }}
-                  </button>
-                </li>
-              </ul>
-            </div>
           </div>
         </div>
       </div>
@@ -716,13 +685,6 @@ const statutOptions = [
 
 const limitOptions = ref([10, 25, 50, 100])
 
-const limitOptionsFormatted = computed(() => {
-  return limitOptions.value.map((value) => ({
-    label: `${value} par page`,
-    value: value,
-  }))
-})
-
 // Fonctions utilitaires pour l'affichage
 const getInitials = (user) => {
   if (user.prenom && user.nom) {
@@ -815,7 +777,7 @@ const fetchUsers = async () => {
     const params = {
       page: pagination.value.page,
       limit: pagination.value.limit,
-      sortBy: sorting.value.field,
+      sortField: sorting.value.field,
       sortOrder: sorting.value.order,
       ...filters.value,
     }
@@ -894,18 +856,16 @@ const refreshData = async () => {
 
 // Gestion des événements
 const onPageChange = (event) => {
-  pagination.value.page = Math.floor(event.first / event.rows) + 1
+  pagination.value.page = event.page + 1
+  pagination.value.limit = event.rows
   fetchUsers()
 }
 
 const onSort = (event) => {
+  pagination.value.page = 1
+  pagination.value.limit = event.rows
   sorting.value.field = event.sortField
   sorting.value.order = event.sortOrder === 1 ? 'asc' : 'desc'
-  fetchUsers()
-}
-
-const handleLimitChange = () => {
-  pagination.value.page = 1
   fetchUsers()
 }
 

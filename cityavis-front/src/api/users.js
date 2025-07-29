@@ -70,7 +70,7 @@ export async function deleteUser(id) {
  */
 export async function bulkDeleteUsers(ids) {
   const { data } = await apiClient.delete('/api/admin/users/bulk/delete', {
-    data: { ids }
+    data: { ids },
   })
   return data
 }
@@ -81,10 +81,9 @@ export async function bulkDeleteUsers(ids) {
  * @param {number} limit
  * @returns {Promise<Array>}
  */
-export async function searchUsers(searchTerm, limit = 20) {
+export async function searchUsers(params) {
   const { data } = await fetchUsers({
-    search: searchTerm,
-    limit
+    ...params,
   })
   return data.data
 }

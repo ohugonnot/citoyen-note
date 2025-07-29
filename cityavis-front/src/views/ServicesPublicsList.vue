@@ -157,37 +157,6 @@
 
           <!-- Actions à droite -->
           <div class="d-flex gap-2 ms-auto">
-            <!-- Options d'affichage -->
-            <div class="dropdown">
-              <button
-                type="button"
-                class="btn btn-outline-secondary dropdown-toggle"
-                data-bs-toggle="dropdown"
-                title="Options d'affichage"
-              >
-                <i class="pi pi-cog"></i>
-              </button>
-              <ul class="dropdown-menu dropdown-menu-end">
-                <li>
-                  <h6 class="dropdown-header">Éléments par page</h6>
-                </li>
-                <li v-for="option in limitOptionsFormatted" :key="option.value">
-                  <button
-                    type="button"
-                    class="dropdown-item"
-                    :class="{ active: serviceStore.pagination.limit === option.value }"
-                    @click="
-                      () => {
-                        serviceStore.changeItemsPerPage(option.value)
-                      }
-                    "
-                  >
-                    {{ option.label }}
-                  </button>
-                </li>
-              </ul>
-            </div>
-
             <!-- Suppression en lot -->
             <Button
               @click="confirmBulkDelete"
@@ -565,13 +534,6 @@ const sorting = ref({ ...DEFAULT_SORT })
 
 const limitOptions = ref([10, 25, 50, 100])
 
-const limitOptionsFormatted = computed(() => {
-  return limitOptions.value.map((value) => ({
-    label: `${value} par page`,
-    value: value,
-  }))
-})
-
 // Filtres locaux synchronisés avec le store
 const localFilters = ref({
   search: '',
@@ -683,7 +645,7 @@ const onUnselectAll = () => {
 const onPageChange = async (event) => {
   try {
     await serviceStore.fetchServices({
-      page: event.page + 1, // PrimeVue commence à 0, votre API à 1
+      page: event.page + 1,
       limit: event.rows,
       sortField: sorting.value.field,
       sortOrder: sorting.value.order,
@@ -703,6 +665,8 @@ const onSort = async (event) => {
     await serviceStore.fetchServices({
       sortField: sorting.value.field,
       sortOrder: sorting.value.order,
+      limit: event.rows,
+      page: 1,
     })
   } catch (error) {
     handleError('Erreur lors du tri', error)

@@ -24,7 +24,7 @@ class UserRepository extends ServiceEntityRepository
         // Recherche globale
         if (!empty($filters->search)) {
             $qb->andWhere('u.email LIKE :search OR u.pseudo LIKE :search OR u.nom LIKE :search OR u.prenom LIKE :search')
-               ->setParameter('search', '%' . $filters->search . '%');
+            ->setParameter('search', '%' . $filters->search . '%');
         }
         
         // Filtre par rôle
@@ -36,7 +36,7 @@ class UserRepository extends ServiceEntityRepository
         // Filtre par statut
         if ($filters->statut) {
             $qb->andWhere('u.statut = :statut')
-               ->setParameter('statut', $filters->statut);
+            ->setParameter('statut', $filters->statut);
         }
 
         // Tri
@@ -51,14 +51,23 @@ class UserRepository extends ServiceEntityRepository
         $total = $countQb->select('COUNT(u.id)')->getQuery()->getSingleScalarResult();
 
         // Pagination
-        $qb->setFirstResult(($filters->page - 1) * $filters->limit)
-           ->setMaxResults($filters->limit);
+        $currentPage = max(1, $filters->page); // S'assurer que la page actuelle est au moins 1
+        $limit = max(1, $filters->limit); // S'assurer que la limite est au moins 1
+
+        $qb->setFirstResult(($currentPage - 1) * $limit)
+        ->setMaxResults($limit);
+
+        // Obtenir les résultats
+        $users = $qb->getQuery()->getResult();
 
         return [
-            'users' => $qb->getQuery()->getResult(),
-            'total' => $total
+            'users' => $users,
+            'total' => $total,
+            'page' => $currentPage,
+            'limit' => $limit,
         ];
     }
+
 
     /**
      * Trouve les utilisateurs par IDs

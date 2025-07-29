@@ -21,7 +21,7 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     search: '',
     categorie: null,
     ville: '',
-    statut: 'actif',
+    statut: null,
     codePostal: '',
     accessibilitePmr: null,
     sortField: 'nom',
