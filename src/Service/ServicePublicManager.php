@@ -171,7 +171,8 @@ class ServicePublicManager
  
         if (!$categorie) {
             $categorie = new CategorieService();
-            $categorie->setNom($donnees['categorie']);
+            $categorieNom = str_replace('É', 'E', $donnees['categorie']);
+            $categorie->setNom($categorieNom);
             $this->entityManager->persist($categorie);
         }
         

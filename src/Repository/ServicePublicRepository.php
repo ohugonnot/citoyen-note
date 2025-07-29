@@ -83,8 +83,8 @@ class ServicePublicRepository extends ServiceEntityRepository
 
         // Recherche
         if (!empty($filterDto->search)) {
-            $qb->andWhere('sp.nom LIKE :search OR sp.ville LIKE :search OR categorie.nom LIKE :search')
-            ->setParameter('search', '%' . $filterDto->search . '%');
+            $qb->andWhere('LOWER(sp.nom) LIKE LOWER(:search) OR LOWER(sp.ville) LIKE LOWER(:search) OR LOWER(categorie.nom) LIKE LOWER(:search)')
+            ->setParameter('search', '%' . strtolower($filterDto->search) . '%');
         }
 
         // Filtres
