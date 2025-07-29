@@ -140,16 +140,35 @@ class ServicePublicManager
 
     private function hydraterCategorie(ServicePublic $service, array $donnees): void
     {
+        $id = null;
+        $nom = null;
         if (isset($donnees["type_service"])) {
-            $donnees['categorie'] = $donnees["type_service"];
+          $nom = $donnees["type_service"];
         }
         if (!isset($donnees['categorie']) || empty($donnees['categorie'])) {
+           $id = $donnees["categorie"];
+        }
+        
+        if (empty($id) && empty($nom)) {
             return;
         }
         
-        // Rechercher ou créer la catégorie
-        $categorie = $this->categorieServiceRepository->findOneBy(['id' => $donnees['categorie']]);
-        
+        if (!empty($id)) {
+            $categorie = $this->categorieServiceRepository->find($id);
+            if ($categorie) {
+                $service->setCategorie($categorie);
+                return;
+            }
+        }
+
+        if (!empty($nom)) {
+            $categorie = $this->categorieServiceRepository->findOneBy(['nom' => $nom]);
+            if ($categorie) {
+                $service->setCategorie($categorie);
+                return;
+            }
+        }
+ 
         if (!$categorie) {
             $categorie = new CategorieService();
             $categorie->setNom($donnees['categorie']);
