@@ -142,10 +142,10 @@ class ServicePublicManager
     {
         $id = null;
         $nom = null;
-        if (isset($donnees["type_service"])) {
+        if (!empty($donnees["type_service"])) {
           $nom = $donnees["type_service"];
         }
-        if (!isset($donnees['categorie']) || empty($donnees['categorie'])) {
+        if (!empty($donnees["categorie"])) {
            $id = $donnees["categorie"];
         }
         
