@@ -140,6 +140,9 @@ class ServicePublicManager
 
     private function hydraterCategorie(ServicePublic $service, array $donnees): void
     {
+        if (isset($donnees["type_service"])) {
+            $donnees['categorie'] = $donnees["type_service"];
+        }
         if (!isset($donnees['categorie']) || empty($donnees['categorie'])) {
             return;
         }
