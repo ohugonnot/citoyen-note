@@ -5,21 +5,21 @@
     <div class="row g-3">
       <div class="col-12">
         <label>Type</label>
-        <select class="form-select" v-model="selectedType">
+        <select v-model="selectedType" class="form-select">
           <option disabled value="">Sélectionnez un type</option>
           <option v-for="t in types" :key="t">{{ t }}</option>
         </select>
       </div>
       <div class="col-12">
         <label>Service</label>
-        <select class="form-select" v-model="selectedService">
+        <select v-model="selectedService" class="form-select">
           <option disabled value="">Sélectionnez un service</option>
           <option v-for="s in services[selectedType] || []" :key="s">{{ s }}</option>
         </select>
       </div>
       <div class="col-12">
         <label>Critère</label>
-        <select class="form-select" v-model="selectedCritere">
+        <select v-model="selectedCritere" class="form-select">
           <option disabled value="">Critère d'évaluation</option>
           <option v-for="c in criteres" :key="c">{{ c }}</option>
         </select>
@@ -40,7 +40,7 @@
 
     <div class="mt-3">
       <label>Commentaire (optionnel)</label>
-      <textarea class="form-control" rows="2" v-model="commentaire"></textarea>
+      <textarea v-model="commentaire" class="form-control" rows="2"></textarea>
     </div>
 
     <div class="mt-3">

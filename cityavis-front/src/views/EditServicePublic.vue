@@ -1,7 +1,7 @@
 <template>
-  <div class="container-fluid py-4">
+  <div class="container py-4">
     <div class="row justify-content-center">
-      <div class="col-xl-8 col-lg-10">
+      <div class="col-xl-10 col-xxl-8">
         <!-- Header -->
         <div class="card mb-4 border-0 shadow-sm">
           <div class="card-body p-4">
@@ -133,7 +133,6 @@ const formulaireValide = computed(() => {
 
 // 🚀 Handler pour la mise à jour des données
 const handleUpdateFormData = (newData) => {
-  console.log(newData)
   Object.keys(newData).forEach((key) => {
     formData[key] = newData[key]
   })
@@ -173,12 +172,12 @@ const chargerService = async () => {
       horaires: service.horaires_ouverture || {},
     })
   } catch (error) {
-    console.error('Erreur lors du chargement:', error)
     errorLoading.value = true
     toast.add({
       severity: 'error',
       summary: 'Erreur de chargement',
-      detail: 'Impossible de charger le service public',
+      detail:
+        'Impossible de charger le service public:' + error?.response?.data?.error || error.message,
       life: 5000,
     })
   } finally {
@@ -271,7 +270,6 @@ const modifierService = async () => {
       router.push('/admin/services-publiques')
     }, 2000)
   } catch (error) {
-    console.error('Erreur:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',

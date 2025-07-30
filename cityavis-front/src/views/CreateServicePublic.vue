@@ -1,7 +1,7 @@
 <template>
-  <div class="container-fluid py-4">
+  <div class="container py-4">
     <div class="row justify-content-center">
-      <div class="col-xl-8 col-lg-10">
+      <div class="col-xl-10 col-xxl-8">
         <!-- Header -->
         <div class="card mb-4 border-0 shadow-sm">
           <div class="card-body p-4">
@@ -48,7 +48,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useServicePublicStore } from '@/stores/servicePublicStore'
@@ -170,7 +170,7 @@ const creerService = async () => {
 
   try {
     const payload = { ...formData }
-    const newService = await serviceStore.createService(payload)
+    await serviceStore.createService(payload)
 
     toast.add({
       severity: 'success',
@@ -183,7 +183,6 @@ const creerService = async () => {
       router.push('/admin/services-publiques')
     }, 2000)
   } catch (error) {
-    console.error('Erreur:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur',

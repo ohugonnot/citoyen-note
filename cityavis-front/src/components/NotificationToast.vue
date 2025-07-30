@@ -6,10 +6,7 @@
           v-for="notification in notifications"
           :key="notification.id"
           class="toast-notification"
-          :class="[
-            `toast-${notification.type}`,
-            { 'toast-mobile': isMobile }
-          ]"
+          :class="[`toast-${notification.type}`, { 'toast-mobile': isMobile }]"
           @click="removeNotification(notification.id)"
         >
           <div class="toast-content">
@@ -17,7 +14,7 @@
               {{ getIcon(notification.type) }}
             </div>
             <div class="toast-body">
-              <div class="toast-title" v-if="notification.title">
+              <div v-if="notification.title" class="toast-title">
                 {{ notification.title }}
               </div>
               <div class="toast-message">
@@ -28,7 +25,10 @@
               <i class="bi bi-x"></i>
             </button>
           </div>
-          <div class="toast-progress" :style="{ animationDuration: `${notification.duration}ms` }"></div>
+          <div
+            class="toast-progress"
+            :style="{ animationDuration: `${notification.duration}ms` }"
+          ></div>
         </div>
       </transition-group>
     </div>
@@ -36,7 +36,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 
 const notifications = ref([])
 const isMobile = ref(window.innerWidth < 768)
@@ -58,7 +58,7 @@ const getIcon = (type) => {
     success: '✅',
     error: '❌',
     warning: '⚠️',
-    info: 'ℹ️'
+    info: 'ℹ️',
   }
   return icons[type] || 'ℹ️'
 }
@@ -71,7 +71,7 @@ const addNotification = (notification) => {
     title: notification.title,
     message: notification.message,
     duration: notification.duration || 5000,
-    ...notification
+    ...notification,
   }
 
   notifications.value.push(newNotification)
@@ -82,7 +82,7 @@ const addNotification = (notification) => {
 }
 
 const removeNotification = (id) => {
-  const index = notifications.value.findIndex(n => n.id === id)
+  const index = notifications.value.findIndex((n) => n.id === id)
   if (index > -1) {
     notifications.value.splice(index, 1)
   }
@@ -95,7 +95,7 @@ const clearAll = () => {
 defineExpose({
   addNotification,
   removeNotification,
-  clearAll
+  clearAll,
 })
 </script>
 

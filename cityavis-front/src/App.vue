@@ -3,8 +3,8 @@
     <Header v-if="showHeader" />
 
     <main class="main-content" :class="{ 'with-header': showHeader }">
-      <div class="container">
-        <router-view v-slot="{ Component, route }">
+      <div class="container-fluid">
+        <router-view v-slot="{ Component }">
           <transition name="page" mode="out-in">
             <component :is="Component" :key="route.path" />
           </transition>
@@ -21,7 +21,6 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import { useNotifications } from '@/composables/useNotifications.js'
 
 import Header from '@/components/Header.vue'
@@ -29,7 +28,6 @@ import NotificationToast from '@/components/NotificationToast.vue'
 import LoadingOverlay from '@/components/LoadingOverlay.vue'
 
 const route = useRoute()
-const auth = useAuthStore()
 const { setNotificationInstance } = useNotifications()
 
 const notificationRef = ref(null)
@@ -61,7 +59,7 @@ onMounted(async () => {
 }
 
 .main-content.with-header {
-  padding-top: 15px;
+  padding-top: 50px;
 }
 
 .page-enter-active,
@@ -79,7 +77,8 @@ onMounted(async () => {
   transform: translateY(-20px);
 }
 
-.container, .main-content {
+.container,
+.main-content {
   background-color: white !important;
 }
 </style>

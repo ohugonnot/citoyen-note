@@ -1,11 +1,11 @@
 <template>
   <teleport to="body">
     <transition name="overlay">
-      <div class="loading-overlay" v-if="show">
+      <div v-if="show" class="loading-overlay">
         <div class="loading-content">
           <div class="loading-spinner-lg"></div>
           <h5 class="loading-title">{{ title }}</h5>
-          <p class="loading-message" v-if="message">{{ message }}</p>
+          <p v-if="message" class="loading-message">{{ message }}</p>
         </div>
       </div>
     </transition>
@@ -16,16 +16,16 @@
 defineProps({
   show: {
     type: Boolean,
-    default: true
+    default: true,
   },
   title: {
     type: String,
-    default: 'Chargement...'
+    default: 'Chargement...',
   },
   message: {
     type: String,
-    default: null
-  }
+    default: null,
+  },
 })
 </script>
 
@@ -83,7 +83,11 @@ defineProps({
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>

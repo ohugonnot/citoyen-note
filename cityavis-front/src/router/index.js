@@ -85,7 +85,7 @@ const routes = [
   {
     path: '/admin/services-publiques/:id/edit',
     name: 'EditService',
-    component: () => import('@/views/UpdateServicePublic.vue'),
+    component: () => import('@/views/EditServicePublic.vue'),
     meta: {
       requiresAuth: true,
       requiresAdmin: false,

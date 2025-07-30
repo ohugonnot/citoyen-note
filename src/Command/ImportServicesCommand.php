@@ -24,7 +24,9 @@ class ImportServicesCommand extends Command
 
     protected function configure(): void
     {
-        $this->addArgument('fichier', InputArgument::REQUIRED, 'Chemin vers le fichier CSV');
+        $this->addArgument('fichier', InputArgument::REQUIRED, 'Chemin vers le fichier CSV')        
+            ->addOption('vider', null, null, 'Vider les services existants avant import');
+        
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -38,9 +40,11 @@ class ImportServicesCommand extends Command
         }
 
         $io->info("Import des services depuis {$fichier}...");
+        $viderAvant = $input->getOption('vider');
+        $io->info("Option --vider : " . ($viderAvant ? 'oui' : 'non'));
 
-        $resultats = $this->serviceManager->importerDepuisCsv($fichier);
-
+        // Appel de l'import
+        $resultats = $this->serviceManager->importerDepuisCsv($fichier, $viderAvant);
         $io->success("Import terminé: {$resultats['succes']} services importés");
 
         if (!empty($resultats['erreurs'])) {

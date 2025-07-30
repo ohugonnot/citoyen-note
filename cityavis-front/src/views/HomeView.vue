@@ -1,5 +1,5 @@
 <template>
-  <div class="container-fluid px-2 px-md-4 py-2 py-md-4">
+  <div class="container px-2 px-md-4 py-2 py-md-4">
     <div class="row mb-3 mb-md-4 g-2 g-md-3">
       <div class="col-lg-6 mb-2 mb-lg-0">
         <div class="card p-2 p-md-4 shadow-sm fade-in h-100">
@@ -71,7 +71,13 @@ const notesParService = computed(() => {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

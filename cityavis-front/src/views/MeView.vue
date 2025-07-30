@@ -328,8 +328,7 @@ const saveProfile = async () => {
       notify.error('Une erreur est survenue lors de la mise à jour.')
     }
   } catch (error) {
-    console.error('[saveProfile] Exception :', error)
-    notify.error('Erreur inattendue lors de la sauvegarde du profil.')
+    notify.error('Erreur inattendue lors de la sauvegarde du profil. ' + error.message)
   }
 }
 
@@ -381,8 +380,7 @@ const formatDateNaissance = (dateNaissance) => {
       day: 'numeric',
     })
   } catch (error) {
-    console.error('[formatDateNaissance] Erreur', error)
-    return 'Date invalide'
+    return 'Date invalide ' + error
   }
 }
 
@@ -398,8 +396,7 @@ const getAge = (dateNaissance) => {
       age--
     }
     return age >= 0 ? age : null
-  } catch (error) {
-    console.error('[getAge] Erreur', error)
+  } catch {
     return null
   }
 }

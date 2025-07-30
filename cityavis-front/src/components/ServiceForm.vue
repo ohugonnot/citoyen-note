@@ -155,15 +155,15 @@
               </div>
 
               <!-- 🗺️ Carte Leaflet -->
-              <div class="col-12" v-if="localFormData.latitude && localFormData.longitude">
+              <div v-if="localFormData.latitude && localFormData.longitude" class="col-12">
                 <div class="mt-3">
                   <label class="form-label fw-medium">
                     <i class="bi bi-map me-2"></i>
                     Aperçu de l'emplacement
                   </label>
                   <div
-                    ref="mapContainer"
                     id="leaflet-map"
+                    ref="mapContainer"
                     class="border rounded"
                     style="height: 300px; width: 100%"
                   ></div>
@@ -189,7 +189,7 @@
           </div>
           <div class="card-body p-4">
             <div class="row g-3">
-              <div class="col-md-4">
+              <div class="col-md-6">
                 <label for="telephone" class="form-label fw-medium"> Téléphone </label>
                 <InputText
                   id="telephone"
@@ -202,7 +202,7 @@
                 </div>
               </div>
 
-              <div class="col-md-4">
+              <div class="col-md-6">
                 <label for="email" class="form-label fw-medium"> Email </label>
                 <InputText
                   id="email"
@@ -215,7 +215,7 @@
                 </div>
               </div>
 
-              <div class="col-md-4">
+              <div class="col-md-6">
                 <label for="site_web" class="form-label fw-medium"> Site web </label>
                 <InputText
                   id="site_web"
@@ -245,36 +245,93 @@
             <!-- Horaires -->
             <div class="mb-4">
               <label class="form-label fw-medium">Horaires d'ouverture</label>
-              <div class="row g-2">
+              <div class="row g-3">
                 <div v-for="(jour, index) in joursOuverture" :key="index" class="col-md-6 col-lg-4">
                   <div class="card border">
-                    <div class="card-body p-3">
-                      <div class="d-flex align-items-center justify-content-between mb-2">
-                        <label class="form-check-label fw-medium">
+                    <div class="card-header bg-light py-2">
+                      <div class="d-flex align-items-center justify-content-between">
+                        <label class="form-check-label fw-medium mb-0">
                           {{ jour.nom }}
                         </label>
                         <div class="form-check form-switch">
-                          <input v-model="jour.ouvert" class="form-check-input" type="checkbox" />
-                        </div>
-                      </div>
-                      <div v-if="jour.ouvert" class="row g-2">
-                        <div class="col-6">
-                          <InputText
-                            v-model="jour.heureOuverture"
-                            class="form-control form-control-sm"
-                            placeholder="09:00"
-                            type="time"
-                          />
-                        </div>
-                        <div class="col-6">
-                          <InputText
-                            v-model="jour.heureFermeture"
-                            class="form-control form-control-sm"
-                            placeholder="17:00"
-                            type="time"
+                          <input
+                            v-model="jour.ouvert"
+                            class="form-check-input"
+                            type="checkbox"
+                            @change="toggleJour(jour)"
                           />
                         </div>
                       </div>
+                    </div>
+
+                    <div v-if="jour.ouvert" class="card-body p-3">
+                      <!-- Liste des créneaux -->
+                      <div
+                        v-for="(creneau, creneauIndex) in jour.creneaux"
+                        :key="creneauIndex"
+                        class="mb-2"
+                      >
+                        <div class="row g-2 align-items-center">
+                          <div class="col-5">
+                            <InputText
+                              v-model="creneau.ouverture"
+                              class="form-control form-control-sm"
+                              placeholder="09:00"
+                              type="time"
+                            />
+                          </div>
+                          <div class="col-1 text-center">
+                            <span class="text-muted">-</span>
+                          </div>
+                          <div class="col-5">
+                            <InputText
+                              v-model="creneau.fermeture"
+                              class="form-control form-control-sm"
+                              placeholder="17:00"
+                              type="time"
+                            />
+                          </div>
+                          <div class="col-1">
+                            <Button
+                              v-if="jour.creneaux.length > 1"
+                              icon="pi pi-times"
+                              severity="danger"
+                              size="small"
+                              text
+                              class="p-1"
+                              @click="supprimerCreneau(jour, creneauIndex)"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Bouton ajouter créneau -->
+                      <div class="d-grid mt-2">
+                        <Button
+                          icon="pi pi-plus"
+                          label="Ajouter un créneau"
+                          severity="secondary"
+                          size="small"
+                          outlined
+                          @click="ajouterCreneau(jour)"
+                        />
+                      </div>
+
+                      <!-- Aperçu des horaires -->
+                      <div
+                        v-if="jour.creneaux.some((c) => c.ouverture && c.fermeture)"
+                        class="mt-2 p-2 bg-light rounded"
+                      >
+                        <small class="text-muted">
+                          <i class="bi bi-clock me-1"></i>
+                          {{ formatApercu(jour.creneaux) }}
+                        </small>
+                      </div>
+                    </div>
+
+                    <div v-else class="card-body p-3 text-center text-muted">
+                      <i class="bi bi-x-circle me-1"></i>
+                      <small>Fermé</small>
                     </div>
                   </div>
                 </div>
@@ -286,10 +343,10 @@
               <div class="col-md-6">
                 <div class="form-check form-switch">
                   <input
+                    id="accessibilite"
                     v-model="localFormData.accessibilite_pmr"
                     class="form-check-input"
                     type="checkbox"
-                    id="accessibilite"
                   />
                   <label class="form-check-label fw-medium" for="accessibilite">
                     <i class="bi bi-universal-access me-2"></i>
@@ -342,107 +399,162 @@ onMounted(async () => {
   await categorieStore.fetchCategories()
 })
 
-// Options pour les statuts
 const statutsDisponibles = ref([
   { label: 'Actif', value: 'actif' },
   { label: 'Fermé temporairement', value: 'ferme' },
   { label: 'En travaux', value: 'travaux' },
 ])
 
-// Jours de la semaine pour les horaires
 const joursOuverture = ref([
-  { nom: 'Lundi', code: 'lundi', ouvert: false, heureOuverture: '', heureFermeture: '' },
-  { nom: 'Mardi', code: 'mardi', ouvert: false, heureOuverture: '', heureFermeture: '' },
-  { nom: 'Mercredi', code: 'mercredi', ouvert: false, heureOuverture: '', heureFermeture: '' },
-  { nom: 'Jeudi', code: 'jeudi', ouvert: false, heureOuverture: '', heureFermeture: '' },
-  { nom: 'Vendredi', code: 'vendredi', ouvert: false, heureOuverture: '', heureFermeture: '' },
-  { nom: 'Samedi', code: 'samedi', ouvert: false, heureOuverture: '', heureFermeture: '' },
-  { nom: 'Dimanche', code: 'dimanche', ouvert: false, heureOuverture: '', heureFermeture: '' },
+  { nom: 'Lundi', code: 'lundi', ouvert: false, creneaux: [{ ouverture: '', fermeture: '' }] },
+  { nom: 'Mardi', code: 'mardi', ouvert: false, creneaux: [{ ouverture: '', fermeture: '' }] },
+  {
+    nom: 'Mercredi',
+    code: 'mercredi',
+    ouvert: false,
+    creneaux: [{ ouverture: '', fermeture: '' }],
+  },
+  { nom: 'Jeudi', code: 'jeudi', ouvert: false, creneaux: [{ ouverture: '', fermeture: '' }] },
+  {
+    nom: 'Vendredi',
+    code: 'vendredi',
+    ouvert: false,
+    creneaux: [{ ouverture: '', fermeture: '' }],
+  },
+  { nom: 'Samedi', code: 'samedi', ouvert: false, creneaux: [{ ouverture: '', fermeture: '' }] },
+  {
+    nom: 'Dimanche',
+    code: 'dimanche',
+    ouvert: false,
+    creneaux: [{ ouverture: '', fermeture: '' }],
+  },
 ])
 
-// 🎯 Construction des horaires depuis joursOuverture
+const ajouterCreneau = (jour) => {
+  jour.creneaux.push({ ouverture: '', fermeture: '' })
+}
+
+const supprimerCreneau = (jour, index) => {
+  if (jour.creneaux.length > 1) {
+    jour.creneaux.splice(index, 1)
+  }
+}
+
+const toggleJour = (jour) => {
+  if (!jour.ouvert) {
+    jour.creneaux = [{ ouverture: '', fermeture: '' }]
+  }
+}
+
+const formatApercu = (creneaux) => {
+  return creneaux
+    .filter((c) => c.ouverture && c.fermeture)
+    .map((c) => `${c.ouverture}-${c.fermeture}`)
+    .join(', ')
+}
+
 const construireHoraires = () => {
   const horaires = {}
-
   joursOuverture.value.forEach((jour) => {
-    if (jour.ouvert && jour.heureOuverture && jour.heureFermeture) {
-      horaires[jour.code] = {
-        ouvert: true,
-        ouverture: jour.heureOuverture,
-        fermeture: jour.heureFermeture,
+    if (jour.ouvert) {
+      const creneauxValides = jour.creneaux.filter((c) => c.ouverture && c.fermeture)
+      if (creneauxValides.length > 0) {
+        horaires[jour.code] = {
+          ouvert: true,
+          creneaux: creneauxValides,
+        }
+      } else {
+        horaires[jour.code] = { ouvert: false }
       }
     } else {
-      horaires[jour.code] = {
-        ouvert: false,
-      }
+      horaires[jour.code] = { ouvert: false }
     }
   })
-
   return horaires
 }
 
-// 🎯 Peuplement de joursOuverture depuis horaires (pour l'édition)
 const peuplerJoursOuvertureDepuisHoraires = (horaires) => {
   if (!horaires) return
 
   joursOuverture.value.forEach((jour) => {
     const horaireJour = horaires[jour.code]
-    if (horaireJour) {
-      jour.ouvert = horaireJour.ouvert || false
-      jour.heureOuverture = horaireJour.ouverture || ''
-      jour.heureFermeture = horaireJour.fermeture || ''
+    if (horaireJour && horaireJour.ouvert) {
+      jour.ouvert = true
+      if (horaireJour.creneaux && horaireJour.creneaux.length > 0) {
+        jour.creneaux = horaireJour.creneaux.map((c) => ({
+          ouverture: c.ouverture || '',
+          fermeture: c.fermeture || '',
+        }))
+      } else if (horaireJour.ouverture && horaireJour.fermeture) {
+        jour.creneaux = [
+          {
+            ouverture: horaireJour.ouverture,
+            fermeture: horaireJour.fermeture,
+          },
+        ]
+      } else {
+        jour.creneaux = [{ ouverture: '', fermeture: '' }]
+      }
     } else {
       jour.ouvert = false
-      jour.heureOuverture = ''
-      jour.heureFermeture = ''
+      jour.creneaux = [{ ouverture: '', fermeture: '' }]
     }
   })
 }
 
 const emit = defineEmits(['submit', 'update-coordonnees', 'update-form-data'])
 
-// 🎯 Initialisation avec horaires construits
 const localFormData = reactive({
   ...props.formData,
-  horaires: construireHoraires(),
 })
 
-// 🎯 Initialisation pour l'édition au montage
+const syncHoraires = debounce(() => {
+  const horaires = construireHoraires()
+  localFormData.horaires = horaires
+
+  emit('update-form-data', { ...localFormData })
+}, 300)
+
+watch(
+  joursOuverture,
+  () => {
+    syncHoraires()
+  },
+  { deep: true },
+)
+
 onMounted(() => {
-  // Si on a des horaires dans les props (mode édition), on peuple joursOuverture
   if (props.formData.horaires) {
     peuplerJoursOuvertureDepuisHoraires(props.formData.horaires)
   }
+
+  localFormData.horaires = construireHoraires()
 })
 
-// 🎯 Synchronisation props → local (pour l'édition)
+// 🎯 **Synchronisation des autres champs (pas les horaires)**
 watch(
   () => props.formData,
   (newFormData) => {
-    Object.assign(localFormData, newFormData)
+    // Copier tout sauf les horaires
+    const { horaires, ...autresChamps } = newFormData
+    Object.assign(localFormData, autresChamps)
 
-    // 🎯 Si on reçoit des horaires, on met à jour joursOuverture
-    if (newFormData.horaires) {
-      peuplerJoursOuvertureDepuisHoraires(newFormData.horaires)
+    // Gérer les horaires séparément
+    if (horaires && JSON.stringify(horaires) !== JSON.stringify(localFormData.horaires)) {
+      peuplerJoursOuvertureDepuisHoraires(horaires)
     }
   },
   { deep: true, immediate: true },
 )
 
-// 🎯 Watch sur joursOuverture pour mettre à jour les horaires
+// 🎯 **Synchronisation vers le parent pour les autres champs**
 watch(
-  joursOuverture,
   () => {
-    localFormData.horaires = construireHoraires()
+    const { horaires, ...autresChamps } = localFormData
+    return autresChamps
   },
-  { deep: true },
-)
-
-// 🎯 Synchronisation local → parent
-watch(
-  localFormData,
   (newData) => {
-    emit('update-form-data', { ...newData })
+    emit('update-form-data', { ...newData, horaires: localFormData.horaires })
   },
   { deep: true },
 )
@@ -452,7 +564,6 @@ let map = null
 let marker = null
 
 const onSubmit = () => {
-  // 🎯 S'assurer que les horaires sont à jour avant submit
   localFormData.horaires = construireHoraires()
   emit('submit')
 }
@@ -626,11 +737,10 @@ const rechercherCoordonnees = debounce(async () => {
       })
     }
   } catch (error) {
-    console.error('Erreur géocodage:', error)
     toast.add({
       severity: 'error',
       summary: 'Erreur de géolocalisation',
-      detail: 'Une erreur est survenue lors de la recherche',
+      detail: 'Une erreur est survenue lors de la recherche: ' + error,
       life: 4000,
     })
   }

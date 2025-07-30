@@ -2,7 +2,7 @@
   <div class="login container py-4" style="max-width: 400px">
     <h1 class="mb-4 text-primary fw-bold text-center">Connexion</h1>
 
-    <form @submit.prevent="handleLogin" novalidate>
+    <form novalidate @submit.prevent="handleLogin">
       <div class="mb-3">
         <input
           v-model="email"
@@ -39,7 +39,12 @@
         <span v-else>Se connecter</span>
       </button>
 
-      <div v-if="auth.lastLoginError" class="alert alert-danger mt-3" role="alert" aria-live="assertive">
+      <div
+        v-if="auth.lastLoginError"
+        class="alert alert-danger mt-3"
+        role="alert"
+        aria-live="assertive"
+      >
         {{ auth.lastLoginError }}
       </div>
     </form>
@@ -67,7 +72,7 @@ const handleLogin = async () => {
       password: password.value,
     })
   } catch (err) {
-    console.error('[handleLogin] Exception:', err)
+    error.value = err
   } finally {
     loading.value = false
   }

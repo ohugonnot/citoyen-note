@@ -1,6 +1,6 @@
 <template>
-  <div class="bg-light min-vh-100 py-3 py-md-4">
-    <div class="container-fluid">
+  <div class="bg-light min-vh-100 py-3">
+    <div class="container">
       <!-- En-tête avec statistiques -->
       <div class="row mb-4">
         <div class="col-12">
@@ -17,7 +17,7 @@
           </div>
 
           <!-- Statistiques responsive -->
-          <div class="row g-3" v-if="stats">
+          <div v-if="stats" class="row g-3">
             <div class="col-6 col-md-3">
               <div class="card text-center h-100">
                 <div class="card-body py-3">
@@ -71,21 +71,21 @@
           </label>
           <div class="input-group">
             <input
-              type="text"
               v-model="filters.search"
-              @input="debouncedSearch"
-              placeholder="Email, pseudo, nom..."
-              class="form-control"
-              autocomplete="off"
-              autocapitalize="off"
-              autocorrect="off"
+              type="text"
               spellcheck="false"
+              autocorrect="off"
+              autocapitalize="off"
+              autocomplete="off"
+              class="form-control"
+              placeholder="Email, pseudo, nom..."
+              @input="debouncedSearch"
             />
             <button
               type="button"
               class="btn btn-outline-primary"
-              @click="fetchUsers"
               :disabled="loading"
+              @click="fetchUsers"
             >
               <i class="pi pi-search"></i>
             </button>
@@ -99,9 +99,9 @@
             <button
               type="button"
               class="btn btn-outline-secondary"
-              @click="refreshData"
-              :disabled="loading"
               title="Actualiser"
+              :disabled="loading"
+              @click="refreshData"
             >
               <i class="pi pi-refresh" :class="{ 'pi-spin': loading }"></i>
               <span class="d-none d-sm-inline ms-2">Actualiser</span>
@@ -110,9 +110,9 @@
             <button
               type="button"
               class="btn btn-outline-info"
-              @click="showFilters = !showFilters"
-              :class="{ active: showFilters }"
               title="Filtres avancés"
+              :class="{ active: showFilters }"
+              @click="showFilters = !showFilters"
             >
               <i class="pi pi-filter"></i>
               <span class="d-none d-lg-inline ms-2">Filtres</span>
@@ -132,13 +132,13 @@
               </label>
               <select
                 v-model="filters.role"
+                class="form-select"
                 @change="
                   () => {
                     pagination.page = 1
                     fetchUsers()
                   }
                 "
-                class="form-select"
               >
                 <option value="">Tous les rôles</option>
                 <option v-for="role in roleOptions" :key="role.value" :value="role.value">
@@ -154,13 +154,13 @@
               </label>
               <select
                 v-model="filters.statut"
+                class="form-select"
                 @change="
                   () => {
                     pagination.page = 1
                     fetchUsers()
                   }
                 "
-                class="form-select"
               >
                 <option value="">Tous les statuts</option>
                 <option v-for="statut in statutOptions" :key="statut.value" :value="statut.value">
@@ -219,26 +219,26 @@
               :value="users"
               :loading="loading"
               :paginator="true"
-              responsiveLayout="scroll"
-              rowHover
-              dataKey="id"
+              responsive-layout="scroll"
+              row-hover
+              data-key="id"
               class="custom-datatable"
-              selectionMode="multiple"
-              @sort="onSort"
-              :rows="pagination.limit"
-              :totalRecords="pagination.total"
               :first="(pagination.page - 1) * pagination.limit"
-              @page="onPageChange"
-              :template="paginatorTemplate"
-              :scrollable="true"
-              :resizableColumns="true"
-              columnResizeMode="expand"
               :lazy="true"
-              :paginatorTemplate="paginatorTemplate"
-              :rowsPerPageOptions="limitOptions"
-              stripedRows
+              column-resize-mode="expand"
+              :scrollable="true"
+              :template="paginatorTemplate"
+              :resizable-columns="true"
+              :paginator-template="paginatorTemplate"
+              :rows-per-page-options="limitOptions"
+              striped-rows
+              :total-records="pagination.total"
+              :rows="pagination.limit"
+              @sort="onSort"
+              @page="onPageChange"
+              @row-click="onRowClick"
             >
-              <Column selectionMode="multiple" headerStyle="width: 3rem" />
+              <Column selection-mode="multiple" header-style="width: 3rem" />
 
               <Column field="id" header="ID" sortable style="width: 80px">
                 <template #body="slotProps">
@@ -259,12 +259,12 @@
                     <div class="flex-grow-1">
                       <div class="fw-semibold text-dark">{{ slotProps.data.email }}</div>
                       <div
-                        class="text-muted small"
                         v-if="slotProps.data.nom || slotProps.data.prenom"
+                        class="text-muted small"
                       >
                         {{ slotProps.data.prenom }} {{ slotProps.data.nom }}
                       </div>
-                      <div class="text-muted small" v-if="slotProps.data.pseudo">
+                      <div v-if="slotProps.data.pseudo" class="text-muted small">
                         @{{ slotProps.data.pseudo }}
                       </div>
                     </div>
@@ -346,14 +346,14 @@
                     <Button
                       icon="pi pi-pencil"
                       class="p-button-rounded p-button-sm p-button-primary"
-                      @click="editUser(slotProps.data)"
                       title="Modifier"
+                      @click="editUser(slotProps.data)"
                     />
                     <Button
                       icon="pi pi-trash"
                       class="p-button-rounded p-button-sm p-button-danger"
-                      @click="confirmDelete(slotProps.data)"
                       title="Supprimer"
+                      @click="confirmDelete(slotProps.data)"
                     />
                   </div>
                 </template>
@@ -369,7 +369,7 @@
 
               <template #loading>
                 <div class="text-center py-5">
-                  <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
+                  <ProgressSpinner style="width: 50px; height: 50px" stroke-width="4" />
                   <p class="text-muted mt-3">Chargement des utilisateurs...</p>
                 </div>
               </template>
@@ -379,7 +379,7 @@
           <!-- Version mobile/tablette avec cartes -->
           <div class="d-lg-none">
             <div v-if="loading" class="text-center py-5">
-              <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
+              <ProgressSpinner style="width: 50px; height: 50px" stroke-width="4" />
               <p class="text-muted mt-3">Chargement...</p>
             </div>
 
@@ -394,11 +394,11 @@
                   <!-- Checkbox de sélection -->
                   <div class="form-check me-3 mt-1">
                     <input
+                      :id="'user-' + user.id"
                       v-model="selectedUsers"
                       :value="user"
                       type="checkbox"
                       class="form-check-input"
-                      :id="'user-' + user.id"
                     />
                   </div>
 
@@ -430,8 +430,8 @@
                             {{ getStatutLabel(user.statut) }}
                           </span>
                           <span
-                            v-if="user.roles?.length"
                             v-for="role in user.roles.slice(0, 1)"
+                            v-if="user.roles?.length"
                             :key="role"
                             :class="getRoleBadgeClass(role)"
                             class="badge badge-sm"
@@ -477,7 +477,7 @@
         header="Confirmation de suppression"
         :style="{ width: '95%', maxWidth: '450px' }"
         class="mx-auto"
-        :dismissableMask="false"
+        :dismissable-mask="false"
       >
         <div class="d-flex align-items-start mb-3">
           <div class="text-warning me-3 flex-shrink-0">
@@ -488,7 +488,7 @@
             <p class="mb-2">Êtes-vous sûr de vouloir supprimer :</p>
             <div class="bg-light p-3 rounded mb-2">
               <div class="fw-semibold">{{ userToDelete?.email }}</div>
-              <small class="text-muted" v-if="userToDelete?.nom || userToDelete?.prenom">
+              <small v-if="userToDelete?.nom || userToDelete?.prenom" class="text-muted">
                 {{ userToDelete?.prenom }} {{ userToDelete?.nom }}
               </small>
             </div>
@@ -523,7 +523,7 @@
         header="Suppression en masse"
         :style="{ width: '95%', maxWidth: '500px' }"
         class="mx-auto"
-        :dismissableMask="false"
+        :dismissable-mask="false"
       >
         <div class="d-flex align-items-start mb-3">
           <div class="text-warning me-3 flex-shrink-0">
@@ -550,7 +550,7 @@
             </div>
             <div class="flex-grow-1 min-width-0">
               <div class="fw-semibold text-truncate">{{ user.email }}</div>
-              <div class="text-muted small" v-if="user.nom || user.prenom">
+              <div v-if="user.nom || user.prenom" class="text-muted small">
                 {{ user.prenom }} {{ user.nom }}
               </div>
             </div>
@@ -797,7 +797,6 @@ const fetchUsers = async () => {
       ...response.pagination,
     }
   } catch (err) {
-    console.error('[fetchUsers] Erreur:', err)
     error.value = err?.response?.data?.message || 'Erreur lors du chargement des utilisateurs'
     toast.add({
       severity: 'error',
@@ -869,8 +868,11 @@ const onSort = (event) => {
   fetchUsers()
 }
 
+const onRowClick = (event) => {
+  editUser(event.data)
+}
+
 const editUser = (user) => {
-  console.log(user)
   router.push(`/admin/users/${user.id}/edit`)
 }
 

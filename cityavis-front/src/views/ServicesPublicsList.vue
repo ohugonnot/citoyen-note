@@ -1,6 +1,5 @@
 <template>
-  <div class="container-fluid">
-    <!-- Header avec statistiques -->
+  <div class="container min-vh-100 py-3">
     <div class="row mb-4">
       <div class="col-12">
         <div
@@ -10,37 +9,39 @@
             <h1 class="h3 mb-2 mb-md-0">Services Publics</h1>
             <p class="text-muted mb-0">Gestion des services publics référencés</p>
           </div>
-          <div class="d-flex flex-column flex-md-row gap-2">
+          <div class="d-flex flex-row gap-2 pt-2">
             <Button
-              @click="refreshData"
-              :loading="serviceStore.isLoading"
-              icon="pi pi-refresh"
-              label="Actualiser"
+              class="responsive-btn"
+              size="small"
               severity="secondary"
-              size="small"
-              class="order-2 order-md-1"
+              label="Actualiser"
+              icon="pi pi-refresh"
+              :loading="serviceStore.isLoading"
+              @click="refreshData"
             />
+
             <Button
-              @click="showImportModal = true"
-              icon="pi pi-upload"
-              label="Importer"
+              class="responsive-btn"
+              size="small"
               severity="info"
-              size="small"
-              class="order-1 order-md-2"
+              label="Importer"
+              icon="pi pi-upload"
+              @click="showImportModal = true"
             />
+
             <Button
-              @click="createService"
-              icon="pi pi-plus"
-              label="Nouveau service"
-              severity="primary"
+              class="responsive-btn"
               size="small"
-              class="order-0 order-md-3"
+              severity="primary"
+              label="Nouveau service"
+              icon="pi pi-plus"
+              @click="createService"
             />
           </div>
         </div>
 
         <!-- Statistiques -->
-        <div class="row g-3" v-if="serviceStore.stats">
+        <div v-if="serviceStore.stats" class="row g-3">
           <div class="col-6 col-md-3">
             <div class="card text-center h-100">
               <div class="card-body py-3">
@@ -92,11 +93,11 @@
             v-model="localFilters.search"
             placeholder="Rechercher un service..."
             class="form-control"
-            @input="onSearchChange"
-            autocomplete="off"
-            autocapitalize="off"
-            autocorrect="off"
             spellcheck="false"
+            autocorrect="off"
+            autocapitalize="off"
+            autocomplete="off"
+            @input="onSearchChange"
           />
           <button type="button" class="btn btn-outline-primary" @input="debouncedSearch">
             <i class="pi pi-search"></i>
@@ -111,26 +112,26 @@
           <Select
             v-model="localFilters.statut"
             :options="STATUT_OPTIONS"
-            optionLabel="label"
-            optionValue="value"
+            option-label="label"
+            option-value="value"
             placeholder="Statut"
-            showClear
-            @change="onFilterChange"
-            class="flex-fill"
+            show-clear
             style="min-width: 120px"
+            class="flex-fill"
+            @change="onFilterChange"
           />
 
           <!-- Catégorie -->
           <Select
             v-model="localFilters.categorie"
             :options="categorieStore.categoriesOptions"
-            optionLabel="label"
-            optionValue="value"
+            option-label="label"
+            option-value="value"
             placeholder="Catégorie"
-            showClear
-            @change="onFilterChange"
-            class="flex-fill"
+            show-clear
             style="min-width: 120px"
+            class="flex-fill"
+            @change="onFilterChange"
           />
         </div>
       </div>
@@ -142,16 +143,16 @@
           <div style="max-width: 175px">
             <InputNumber
               v-model="localFilters.note_min"
-              @input="onFilterChange"
-              placeholder="Note min."
-              :min="0"
-              :max="5"
-              :step="0.1"
-              :maxFractionDigits="1"
-              showButtons
-              buttonLayout="horizontal"
-              class="compact-input-number w-100"
               size="small"
+              class="compact-input-number w-100"
+              button-layout="horizontal"
+              show-buttons
+              :max-fraction-digits="1"
+              :step="0.1"
+              :max="5"
+              :min="0"
+              placeholder="Note min."
+              @input="onFilterChange"
             />
           </div>
 
@@ -159,16 +160,16 @@
           <div class="d-flex gap-2 ms-auto">
             <!-- Suppression en lot -->
             <Button
-              @click="confirmBulkDelete"
-              :disabled="selectedServices.length === 0"
-              icon="pi pi-trash"
-              severity="danger"
-              size="small"
               :title="
                 selectedServices.length === 0
                   ? 'Sélectionnez des services'
                   : `Supprimer ${selectedServices.length} service(s)`
               "
+              size="small"
+              severity="danger"
+              icon="pi pi-trash"
+              :disabled="selectedServices.length === 0"
+              @click="confirmBulkDelete"
             />
           </div>
         </div>
@@ -185,28 +186,28 @@
             :loading="serviceStore.isLoading"
             :paginator="true"
             :rows="serviceStore.pagination.limit"
-            :totalRecords="serviceStore.pagination.total"
+            :total-records="serviceStore.pagination.total"
             :lazy="true"
             :first="(serviceStore.pagination.page - 1) * serviceStore.pagination.limit"
-            :paginatorTemplate="paginatorTemplate"
-            :rowsPerPageOptions="limitOptions"
-            :sortField="sorting.field"
-            :sortOrder="sorting.order === 'asc' ? 1 : -1"
+            :paginator-template="paginatorTemplate"
+            :rows-per-page-options="limitOptions"
+            :sort-field="sorting.field"
+            :sort-order="sorting.order === 'asc' ? 1 : -1"
             :scrollable="true"
-            :resizableColumns="true"
-            columnResizeMode="expand"
-            selectionMode="multiple"
-            dataKey="id"
-            responsiveLayout="scroll"
-            stripedRows
+            :resizable-columns="true"
+            column-resize-mode="expand"
+            data-key="id"
+            responsive-layout="scroll"
+            striped-rows
+            class="p-datatable-sm"
             @page="onPageChange"
             @sort="onSort"
             @row-select-all="onSelectAll"
             @row-unselect-all="onUnselectAll"
-            class="p-datatable-sm"
+            @row-click="onRowClick"
           >
             <!-- Header de sélection -->
-            <Column selectionMode="multiple" :style="{ width: '3rem' }" :exportable="false" />
+            <Column selection-mode="multiple" :style="{ width: '3rem' }" :exportable="false" />
 
             <!-- Nom du service -->
             <Column field="nom" header="Service" sortable :style="{ minWidth: '200px' }">
@@ -240,7 +241,7 @@
               field="categorie_nom"
               header="Catégorie"
               :sortable="true"
-              :sortField="'categorie.nom'"
+              :sort-field="'categorie.nom'"
               :style="{ minWidth: '150px' }"
             >
               <template #body="{ data }">
@@ -273,7 +274,7 @@
                 <div class="d-flex flex-column align-items-center">
                   <div class="d-flex align-items-center mb-1">
                     <Rating
-                      :modelValue="data.note_moyenne || 0"
+                      :model-value="data.note_moyenne || 0"
                       readonly
                       :cancel="false"
                       :stars="5"
@@ -321,28 +322,28 @@
               <template #body="{ data }">
                 <div class="d-flex gap-1">
                   <Button
-                    @click="viewService(data)"
-                    icon="pi pi-eye"
-                    severity="info"
-                    text
-                    size="small"
                     title="Voir"
+                    size="small"
+                    text
+                    severity="info"
+                    icon="pi pi-eye"
+                    @click="viewService(data)"
                   />
                   <Button
-                    @click="editService(data)"
-                    icon="pi pi-pencil"
-                    severity="secondary"
-                    text
-                    size="small"
                     title="Modifier"
+                    size="small"
+                    text
+                    severity="secondary"
+                    icon="pi pi-pencil"
+                    @click="editService(data)"
                   />
                   <Button
-                    @click="confirmDelete(data)"
-                    icon="pi pi-trash"
-                    severity="danger"
-                    text
-                    size="small"
                     title="Supprimer"
+                    size="small"
+                    text
+                    severity="danger"
+                    icon="pi pi-trash"
+                    @click="confirmDelete(data)"
                   />
                 </div>
               </template>
@@ -362,10 +363,10 @@
                 </p>
                 <Button
                   v-if="!hasActiveFilters"
-                  @click="createService"
-                  label="Créer un service"
-                  icon="pi pi-plus"
                   severity="primary"
+                  icon="pi pi-plus"
+                  label="Créer un service"
+                  @click="createService"
                 />
               </div>
             </template>
@@ -393,8 +394,8 @@
 
       <template #footer>
         <div class="d-flex gap-2 justify-content-end">
-          <Button @click="showDeleteModal = false" label="Annuler" severity="secondary" text />
-          <Button @click="deleteService" label="Supprimer" severity="danger" icon="pi pi-trash" />
+          <Button text severity="secondary" label="Annuler" @click="showDeleteModal = false" />
+          <Button icon="pi pi-trash" severity="danger" label="Supprimer" @click="deleteService" />
         </div>
       </template>
     </Dialog>
@@ -435,12 +436,12 @@
 
       <template #footer>
         <div class="d-flex gap-2 justify-content-end">
-          <Button @click="showBulkDeleteModal = false" label="Annuler" severity="secondary" text />
+          <Button text severity="secondary" label="Annuler" @click="showBulkDeleteModal = false" />
           <Button
-            @click="bulkDelete"
-            :label="`Supprimer ${selectedServices.length} service(s)`"
-            severity="danger"
             icon="pi pi-trash"
+            severity="danger"
+            :label="`Supprimer ${selectedServices.length} service(s)`"
+            @click="bulkDelete"
           />
         </div>
       </template>
@@ -461,7 +462,7 @@
 
       <template #footer>
         <div class="d-flex gap-2 justify-content-end">
-          <Button @click="showImportModal = false" label="Fermer" severity="secondary" />
+          <Button severity="secondary" label="Fermer" @click="showImportModal = false" />
         </div>
       </template>
     </Dialog>
@@ -638,6 +639,10 @@ const onSelectAll = (event) => {
   selectedServices.value = [...event.data]
 }
 
+const onRowClick = (event) => {
+  editService(event.data)
+}
+
 const onUnselectAll = () => {
   selectedServices.value = []
 }
@@ -742,7 +747,6 @@ const refreshData = async () => {
 // GESTION D'ERREUR
 // =============================================
 const handleError = (message, error) => {
-  console.error(message, error)
   const errorMessage = serviceStore.error || error?.message || message
   showToast('ERROR', 'Erreur', errorMessage)
 }
@@ -844,5 +848,11 @@ onMounted(async () => {
 .compact-input-number :deep(.p-inputnumber-button) {
   width: 30px !important;
   min-width: 30px !important;
+}
+
+@media (max-width: 575.98px) {
+  .responsive-btn :deep(.p-button-label) {
+    display: none !important;
+  }
 }
 </style>

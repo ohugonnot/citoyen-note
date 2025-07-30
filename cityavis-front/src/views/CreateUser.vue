@@ -4,7 +4,7 @@
     v-model:visible="showCreateModal"
     :modal="true"
     :closable="true"
-    :dismissableMask="false"
+    :dismissable-mask="false"
     :draggable="false"
     class="create-user-modal"
     :style="{ width: '90vw', maxWidth: '800px' }"
@@ -27,7 +27,7 @@
     </template>
 
     <div class="create-user-content">
-      <form @submit.prevent="submitCreateUser" novalidate>
+      <form novalidate @submit.prevent="submitCreateUser">
         <!-- Informations de base -->
         <div class="section-card mb-4">
           <div class="section-header d-flex align-items-center mb-3">
@@ -42,8 +42,8 @@
                 Email <span class="text-danger">*</span>
               </label>
               <input
-                type="email"
                 v-model="formData.email"
+                type="email"
                 class="form-control"
                 :class="{ 'is-invalid': errors.email }"
                 autocomplete="email"
@@ -60,8 +60,8 @@
                 Pseudo
               </label>
               <input
-                type="text"
                 v-model="formData.pseudo"
+                type="text"
                 class="form-control"
                 :class="{ 'is-invalid': errors.pseudo }"
                 autocomplete="username"
@@ -77,8 +77,8 @@
                 Prénom
               </label>
               <input
-                type="text"
                 v-model="formData.prenom"
+                type="text"
                 class="form-control"
                 :class="{ 'is-invalid': errors.prenom }"
                 autocomplete="given-name"
@@ -94,8 +94,8 @@
                 Nom
               </label>
               <input
-                type="text"
                 v-model="formData.nom"
+                type="text"
                 class="form-control"
                 :class="{ 'is-invalid': errors.nom }"
                 autocomplete="family-name"
@@ -122,8 +122,8 @@
               </label>
               <div class="input-group">
                 <input
-                  :type="showPassword ? 'text' : 'password'"
                   v-model="formData.password"
+                  :type="showPassword ? 'text' : 'password'"
                   class="form-control"
                   :class="{ 'is-invalid': errors.password }"
                   autocomplete="new-password"
@@ -132,8 +132,8 @@
                 <button
                   type="button"
                   class="btn btn-outline-secondary"
-                  @click="showPassword = !showPassword"
                   tabindex="-1"
+                  @click="showPassword = !showPassword"
                 >
                   <i :class="showPassword ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
                 </button>
@@ -156,8 +156,8 @@
               </label>
               <div class="input-group">
                 <input
-                  :type="showConfirmPassword ? 'text' : 'password'"
                   v-model="formData.confirmPassword"
+                  :type="showConfirmPassword ? 'text' : 'password'"
                   class="form-control"
                   :class="{ 'is-invalid': errors.confirmPassword }"
                   autocomplete="new-password"
@@ -166,8 +166,8 @@
                 <button
                   type="button"
                   class="btn btn-outline-secondary"
-                  @click="showConfirmPassword = !showConfirmPassword"
                   tabindex="-1"
+                  @click="showConfirmPassword = !showConfirmPassword"
                 >
                   <i :class="showConfirmPassword ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
                 </button>
@@ -185,10 +185,10 @@
               <MultiSelect
                 v-model="formData.roles"
                 :options="roleOptions"
-                optionLabel="label"
-                optionValue="value"
+                option-label="label"
+                option-value="value"
                 placeholder="Sélectionner les rôles"
-                :maxSelectedLabels="2"
+                :max-selected-labels="2"
                 class="w-100"
                 :class="{ 'p-invalid': errors.roles }"
               />
@@ -206,8 +206,8 @@
                 id="statut"
                 v-model="formData.statut"
                 :options="statutOptions"
-                optionLabel="label"
-                optionValue="value"
+                option-label="label"
+                option-value="value"
                 placeholder="Choisir un statut"
                 class="w-100"
                 :class="{ 'p-invalid': errors.statut }"
@@ -263,8 +263,8 @@
                   Téléphone
                 </label>
                 <input
-                  type="tel"
                   v-model="formData.telephone"
+                  type="tel"
                   class="form-control"
                   :class="{ 'is-invalid': errors.telephone }"
                   autocomplete="tel"
@@ -280,8 +280,8 @@
                   Date de naissance
                 </label>
                 <input
-                  type="date"
                   v-model="formData.dateNaissance"
+                  type="date"
                   class="form-control"
                   :class="{ 'is-invalid': errors.dateNaissance }"
                   :max="new Date().toISOString().split('T')[0]"
@@ -297,8 +297,8 @@
                   Code postal
                 </label>
                 <input
-                  type="text"
                   v-model="formData.codePostal"
+                  type="text"
                   class="form-control"
                   :class="{ 'is-invalid': errors.codePostal }"
                   pattern="[0-9]{5}"
@@ -316,8 +316,8 @@
                   Ville
                 </label>
                 <input
-                  type="text"
                   v-model="formData.ville"
+                  type="text"
                   class="form-control"
                   :class="{ 'is-invalid': errors.ville }"
                   autocomplete="address-level2"
@@ -351,11 +351,11 @@
               <div class="col-12">
                 <div class="form-check form-switch">
                   <input
+                    id="emailVerified"
+                    v-model="formData.isVerified"
                     class="form-check-input"
                     type="checkbox"
                     role="switch"
-                    id="emailVerified"
-                    v-model="formData.isVerified"
                   />
                   <label class="form-check-label fw-semibold" for="emailVerified">
                     <i class="pi pi-verified me-1"></i>
@@ -372,11 +372,11 @@
               <div class="col-12">
                 <div class="form-check form-switch">
                   <input
+                    id="sendWelcomeEmail"
+                    v-model="formData.sendWelcomeEmail"
                     class="form-check-input"
                     type="checkbox"
                     role="switch"
-                    id="sendWelcomeEmail"
-                    v-model="formData.sendWelcomeEmail"
                   />
                   <label class="form-check-label fw-semibold" for="sendWelcomeEmail">
                     <i class="pi pi-send me-1"></i>
@@ -406,16 +406,16 @@
             label="Annuler"
             icon="pi pi-times"
             class="p-button-text p-button-secondary"
-            @click="closeCreateModal"
             :disabled="createLoading"
+            @click="closeCreateModal"
           />
           <Button
             label="Créer l'utilisateur"
             icon="pi pi-check"
             class="p-button-success"
-            @click="submitCreateUser"
-            :loading="createLoading"
             :disabled="!isFormValid"
+            :loading="createLoading"
+            @click="submitCreateUser"
           />
         </div>
       </div>
@@ -594,9 +594,6 @@ const submitCreateUser = async () => {
     emit('user-created', newUser) // Passer les données du nouvel utilisateur
     closeCreateModal()
   } catch (error) {
-    console.error('[submitCreateUser] Erreur:', error)
-
-    // Gestion des erreurs spécifiques
     let detail = "Erreur lors de la création de l'utilisateur"
     let errorMessage
     if (error?.response?.status === 409) {

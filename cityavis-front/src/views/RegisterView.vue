@@ -2,7 +2,7 @@
   <div class="register container py-4" style="max-width: 400px">
     <h1 class="mb-4 text-primary fw-bold text-center">Créer un compte</h1>
 
-    <form @submit.prevent="handleRegister" novalidate>
+    <form novalidate @submit.prevent="handleRegister">
       <div class="mb-3">
         <input
           v-model="email"
@@ -40,7 +40,11 @@
 
       <button type="submit" class="btn btn-primary w-100" :disabled="auth.isAuthLoading">
         <span v-if="auth.isAuthLoading">
-          <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          <span
+            class="spinner-border spinner-border-sm me-2"
+            role="status"
+            aria-hidden="true"
+          ></span>
           Inscription...
         </span>
         <span v-else>S’inscrire</span>
@@ -52,7 +56,12 @@
       </div>
 
       <!-- Erreur provenant de l'API via le store -->
-      <div v-if="auth.lastLoginError" class="alert alert-danger mt-3" role="alert" aria-live="assertive">
+      <div
+        v-if="auth.lastLoginError"
+        class="alert alert-danger mt-3"
+        role="alert"
+        aria-live="assertive"
+      >
         {{ auth.lastLoginError }}
       </div>
 
@@ -111,7 +120,6 @@ const handleRegister = async () => {
     } else {
       localError.value = 'Erreur lors de l’inscription.'
     }
-    console.error('[Register] Erreur API:', err)
   }
 }
 </script>

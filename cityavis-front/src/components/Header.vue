@@ -7,11 +7,10 @@
           class="navbar-brand d-flex align-items-center gap-2"
           :class="{ 'mobile-brand': isMobile }"
         >
-          <span class="brand-icon">🏛️</span>
-          <span class="brand-text fw-bold">CitoyenNote</span>
+          <img src="/logo.png" alt="CityAvis" height="75" class="logo" />
         </router-link>
 
-        <nav class="d-flex align-items-center gap-2" v-if="!auth.isAuthenticated">
+        <nav v-if="!auth.isAuthenticated" class="d-flex align-items-center gap-2">
           <button
             class="btn btn-outline-primary d-sm-inline-flex align-items-center gap-2"
             @click="goRegister"
@@ -28,15 +27,15 @@
         <div v-else class="user-menu">
           <div class="dropdown">
             <button
+              id="userDropdown"
               class="btn btn-light dropdown-toggle user-btn"
               type="button"
-              id="userDropdown"
               data-bs-toggle="dropdown"
               aria-expanded="false"
             >
               <div class="user-avatar">
                 {{ userInitials }}
-                <div class="user-status" v-if="auth.user?.is_verified"></div>
+                <div v-if="auth.user?.is_verified" class="user-status"></div>
               </div>
               <div class="user-info d-none d-md-block">
                 <div class="user-name">{{ displayName }}</div>
@@ -50,7 +49,7 @@
                 <div class="d-flex align-items-center gap-3">
                   <div class="user-avatar-lg">
                     {{ userInitials }}
-                    <div class="user-status" v-if="auth.user?.is_verified"></div>
+                    <div v-if="auth.user?.is_verified" class="user-status"></div>
                   </div>
                   <div>
                     <div class="fw-semibold">{{ displayName }}</div>
@@ -126,8 +125,8 @@
               <li>
                 <button
                   class="dropdown-item d-flex align-items-center gap-2 text-danger"
-                  @click="logout"
                   :disabled="isLoggingOut"
+                  @click="logout"
                 >
                   <span v-if="isLoggingOut">Déconnexion...</span>
                   <span v-else>Déconnexion</span>
