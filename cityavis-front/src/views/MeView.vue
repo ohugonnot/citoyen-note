@@ -292,7 +292,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '@/stores/authStore'
 import { useNotifications } from '@/composables/useNotifications' // ou le bon chemin
 
 const auth = useAuthStore()

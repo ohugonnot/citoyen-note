@@ -7,7 +7,9 @@
           class="navbar-brand d-flex align-items-center gap-2"
           :class="{ 'mobile-brand': isMobile }"
         >
-          <img src="/logo.png" alt="CityAvis" height="75" class="logo" />
+          <img src="/logo.png" alt="CityAvis" height="75" class="logo d-none d-md-inline" />
+          <!-- Version mobile plus petite -->
+          <img src="/logo.png" alt="CityAvis" height="50" class="logo d-inline d-md-none" />
         </router-link>
 
         <nav v-if="!auth.isAuthenticated" class="d-flex align-items-center gap-2">
@@ -136,7 +138,7 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '@/stores/authStore'
 
 const router = useRouter()
 const auth = useAuthStore()

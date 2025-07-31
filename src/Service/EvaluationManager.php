@@ -106,13 +106,13 @@ class EvaluationManager
             ->execute();
     }
 
-    public function getPublicServiceStats(Uuid $serviceId): array
+    public function getPublicServiceStats(ServicePublic $service): array
     {
         $qb = $this->repository->createQueryBuilder('e')
-            ->where('e.servicePublic = :service_id')
+            ->where('e.servicePublic = :service')
             ->andWhere('e.statut = :statut')
-            ->andWhere('e.estVerifie = true')
-            ->setParameter('service_id', $serviceId)
+          //  ->andWhere('e.estVerifie = true')
+            ->setParameter('service', $service->getId()->toBinary())
             ->setParameter('statut', StatutEvaluation::ACTIVE)
             ->orderBy('e.createdAt', 'DESC')
             ->setMaxResults(20); 

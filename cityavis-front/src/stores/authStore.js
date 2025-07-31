@@ -61,7 +61,7 @@ export const useAuthStore = defineStore('auth', {
 
   getters: {
     isAuthenticated: (state) => !!(state.accessToken && state.user),
-    currentUser: (state) => state.user ? { ...state.user } : null,
+    currentUser: (state) => (state.user ? { ...state.user } : null),
     isAuthLoading: (state) => state.isLoading,
     lastLoginError: (state) => state.loginError,
   },
@@ -185,7 +185,11 @@ export const useAuthStore = defineStore('auth', {
         console.log('[refreshToken] Rafraîchissement réussi')
         return true
       } catch (error) {
-        console.error('[refreshToken] Erreur détaillée:', error.response?.status, error.response?.data)
+        console.error(
+          '[refreshToken] Erreur détaillée:',
+          error.response?.status,
+          error.response?.data,
+        )
 
         // Si c'est une erreur 401, le refresh token est invalide
         if (error.response?.status === 401) {

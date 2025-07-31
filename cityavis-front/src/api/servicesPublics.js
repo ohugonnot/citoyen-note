@@ -19,6 +19,11 @@ export default {
     return data
   },
 
+  async getOneBySlug(slug) {
+    const { data } = await apiClient.get(`${basePublicUrl}/${slug}`)
+    return data
+  },
+
   async create(payload) {
     const { data } = await apiClient.post(baseUrl, payload)
     return data

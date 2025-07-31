@@ -33,7 +33,48 @@ class AuthController extends AbstractController
         $data = json_decode($request->getContent(), true);
 
         if (!isset($data['email'], $data['password'])) {
-            return $this->json(['error' => 'email et password requis'], 400);
+            return $this->json(['error' => 'Email et mot de passe requis'], 400);
+        }
+
+        // Validation de l'email
+        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            return $this->json(['error' => 'Format d\'email invalide'], 400);
+        }
+
+        // Validation du mot de passe
+        $password = $data['password'];
+        $passwordErrors = [];
+
+        if (strlen($password) < 8) {
+            $passwordErrors[] = 'au moins 8 caractères';
+        }
+        if (!preg_match('/[A-Z]/', $password)) {
+            $passwordErrors[] = 'au moins une majuscule';
+        }
+        if (!preg_match('/[a-z]/', $password)) {
+            $passwordErrors[] = 'au moins une minuscule';
+        }
+        if (!preg_match('/\d/', $password)) {
+            $passwordErrors[] = 'au moins un chiffre';
+        }
+        if (!preg_match('/[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]/', $password)) {
+            $passwordErrors[] = 'au moins un caractère spécial';
+        }
+
+        // Vérification des mots de passe faibles
+        $weakPasswords = [
+            '12345678', 'password', 'Password1!', 'azerty123', 'qwerty123',
+            'motdepasse', '00000000', '11111111', '123456789', 'password123'
+        ];
+        
+        if (in_array(strtolower($password), array_map('strtolower', $weakPasswords))) {
+            $passwordErrors[] = 'mot de passe trop courant';
+        }
+
+        if (!empty($passwordErrors)) {
+            return $this->json([
+                'error' => 'Mot de passe invalide : ' . implode(', ', $passwordErrors)
+            ], 400);
         }
 
         // Vérifier si l'utilisateur existe déjà
@@ -47,7 +88,7 @@ class AuthController extends AbstractController
             $user->setEmail($data['email']);
             $user->setPseudo($data['pseudo'] ?? null);
             $user->setPassword(
-                $passwordHasher->hashPassword($user, $data['password'])
+                $passwordHasher->hashPassword($user, $password)
             );
             $user->setIsVerified(false);
             $user->setRoles(['ROLE_USER']);
@@ -60,9 +101,12 @@ class AuthController extends AbstractController
 
             $logger->info('User registered successfully', ['email' => $data['email']]);
 
-            return $this->json(['message' => 'Utilisateur enregistré']);
+            return $this->json(['message' => 'Utilisateur enregistré avec succès']);
         } catch (\Exception $e) {
-            $logger->error('Registration failed', ['email' => $data['email'], 'error' => $e->getMessage()]);
+            $logger->error('Registration failed', [
+                'email' => $data['email'], 
+                'error' => $e->getMessage()
+            ]);
             return $this->json(['error' => 'Erreur lors de l\'enregistrement'], 500);
         }
     }

@@ -250,6 +250,14 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     return res
   }
 
+  const fetchServiceBySlug = async (slug) => {
+    return execute(async () => {
+      const service = await api.getOneBySlug(slug)
+      currentService.value = service
+      return service
+    })
+  }
+
   return {
     services,
     servicesPublic,
@@ -287,5 +295,6 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     changeItemsPerPage,
     resetError,
     refreshServices,
+    fetchServiceBySlug,
   }
 })

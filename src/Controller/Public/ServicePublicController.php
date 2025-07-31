@@ -38,10 +38,17 @@ class ServicePublicController extends AbstractController
     {
         // Récupération des paramètres
         $search = $request->query->get('search', '');
-        $ville = $request->query->get('ville', '');
+        $villeData = $request->query->all('ville') ?? []; 
         $categorie = $request->query->get('categorie');
         $page = max(1, (int) $request->query->get('page', 1));
         $limit = min(50, max(1, (int) $request->query->get('limit', 12)));
+        
+        $ville = '';
+        $codePostal = '';
+        if (!empty($villeData)) {
+            $ville = $villeData['nom'] ?? '';
+            $codePostal = $villeData['codePostal'] ?? '';
+        }
         
         try {
             // Requête pour compter le total
@@ -51,8 +58,8 @@ class ServicePublicController extends AbstractController
                 ->where('s.statut = :statut')
                 ->setParameter('statut', StatutService::ACTIF);
 
-            // Application des filtres
-            $this->applyFilters($countQb, $search, $ville, $categorie);
+            // Application des filtres avec code postal
+            $this->applyFilters($countQb, $search, $ville, $categorie, $codePostal);
             $total = (int) $countQb->getQuery()->getSingleScalarResult();
 
             // Requête pour récupérer les données
@@ -64,10 +71,10 @@ class ServicePublicController extends AbstractController
                 ->orderBy('s.nom', 'ASC');
 
             // Application des mêmes filtres
-            $this->applyFilters($qb, $search, $ville, $categorie);
+            $this->applyFilters($qb, $search, $ville, $categorie, $codePostal);
             
             $qb->setFirstResult(($page - 1) * $limit)
-               ->setMaxResults($limit);
+            ->setMaxResults($limit);
 
             $services = $qb->getQuery()->getResult();
 
@@ -118,7 +125,7 @@ class ServicePublicController extends AbstractController
                 ],
                 'filters' => [
                     'search' => $search,
-                    'ville' => $ville,
+                    'ville' => $villeData,
                     'categorie' => $categorie,
                 ],
             ], 200, [], [
@@ -136,41 +143,37 @@ class ServicePublicController extends AbstractController
         }
     }
 
-    /**
-     * Méthode pour appliquer les filtres de façon consistante
-     */
-    private function applyFilters(QueryBuilder $qb, string $search, string $ville, ?string $categorie): void
+    // 🎯 Méthode applyFilters avec code postal
+    private function applyFilters($qb, string $search, string $ville, ?string $categorie, string $codePostal = ''): void
     {
+        // Filtre de recherche
         if (!empty($search)) {
-            $cleanSearch = $this->cleanString($search);
-            $qb->andWhere('(LOWER(s.nom) LIKE LOWER(:search) OR LOWER(s.description) LIKE LOWER(:search))')
-               ->setParameter('search', '%' . $cleanSearch . '%');
+            $qb->andWhere('s.nom LIKE :search OR s.description LIKE :search')
+            ->setParameter('search', '%' . $search . '%');
         }
 
+        // 🎯 Filtre ville avec code postal et code INSEE
         if (!empty($ville)) {
-            $cleanVille = $this->cleanString($ville);
-            $qb->andWhere('LOWER(s.ville) LIKE LOWER(:ville)')
-               ->setParameter('ville', '%' . $cleanVille . '%');
+            $conditions = ['s.ville LIKE :ville'];
+            $qb->setParameter('ville', '%' . $ville . '%');
+            
+            if (!empty($codePostal)) {
+                $conditions[] = 's.codePostal = :codePostal';
+                $conditions[] = 's.codePostal LIKE :codePostalPattern';
+                $qb->setParameter('codePostal', $codePostal)
+                ->setParameter('codePostalPattern', $codePostal . '%');
+            }
+            
+            $qb->andWhere('(' . implode(' OR ', $conditions) . ')');
         }
 
-        if (!empty($categorie) && $categorie !== 'null') {
-            // Vérifier si c'est un UUID
-            if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $categorie)) {
-                // Filtrage par ID de catégorie (UUID)
-                $qb->andWhere('c.id = :categorie')
-                   ->setParameter('categorie', $categorie);
-            } else {
-                // Filtrage par nom ou slug de catégorie
-                $cleanCategorie = $this->cleanString($categorie);
-                $qb->andWhere('(LOWER(c.nom) = LOWER(:categorie) OR LOWER(c.slug) = LOWER(:categorie))')
-                   ->setParameter('categorie', $cleanCategorie);
-            }
+        // Filtre catégorie
+        if (!empty($categorie)) {
+            $qb->andWhere('c.slug = :categorie')
+            ->setParameter('categorie', $categorie);
         }
     }
 
-    /**
-     * Nettoie une chaîne de caractères
-     */
     private function cleanString(?string $str): ?string
     {
         if ($str === null) {
@@ -199,7 +202,7 @@ class ServicePublicController extends AbstractController
         }
 
         // Stats publiques seulement
-        $evaluationStats = $this->evaluationManager->getPublicServiceStats($service->getId());
+        $evaluationStats = $this->evaluationManager->getPublicServiceStats($service);
 
         $response = [
             'service' => ServicePublicJsonHelper::build($service, 'public'),

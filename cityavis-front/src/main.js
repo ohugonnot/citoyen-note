@@ -88,7 +88,7 @@ const components = {
   const pinia = createPinia()
   app.use(pinia)
 
-  const { useAuthStore } = await import('./stores/auth')
+  const { useAuthStore } = await import('./stores/authStore')
   const authStore = useAuthStore()
 
   router.beforeEach(async (to, from, next) => {

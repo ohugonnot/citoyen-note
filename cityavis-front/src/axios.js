@@ -1,6 +1,6 @@
 // src/axios.js
 import axios from 'axios'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '@/stores/authStore'
 
 /**
  * Configuration de l'instance Axios avec gestion automatique de l'authentification

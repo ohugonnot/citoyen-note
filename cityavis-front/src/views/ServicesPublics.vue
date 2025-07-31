@@ -24,8 +24,15 @@ const searchTerm = ref('')
 const villeFilter = ref('')
 const categorieFilter = ref(null)
 
+const getStoredViewMode = () => {
+  try {
+    return localStorage.getItem('viewMode') || 'grid'
+  } catch (error) {
+    return 'grid' // fallback si localStorage pas dispo
+  }
+}
 // UI State
-const viewMode = ref('grid') // 'grid' ou 'map'
+const viewMode = ref(getStoredViewMode())
 const map = ref(null)
 const mapContainer = ref(null)
 const markers = ref([])
@@ -111,12 +118,16 @@ const switchToGrid = () => {
 const switchToMap = async () => {
   viewMode.value = 'map'
   await nextTick()
+  await nextTick()
+  await new Promise((resolve) => setTimeout(resolve, 50))
 
   if (!map.value && mapContainer.value) {
     initMap()
   } else if (map.value) {
-    map.value.invalidateSize()
-    updateMapMarkers()
+    setTimeout(() => {
+      map.value.invalidateSize()
+      updateMapMarkers()
+    }, 100)
   }
 }
 
@@ -231,6 +242,14 @@ const generateStarsHTML = (rating) => {
   return starsHTML
 }
 
+const loadServiceDetails = async (slug) => {
+  try {
+    await serviceStore.fetchServiceBySlug(slug)
+  } catch (error) {
+    router.push({ name: 'ServicePublicDetail', params: { slug } })
+  }
+}
+
 const getCategoryBadgeClass = (categorie) => {
   const classes = {
     administration: 'bg-primary',
@@ -246,14 +265,105 @@ window.goToServiceFromMap = (slug) => {
   router.push({ name: 'ServicePublicDetail', params: { slug } })
 }
 
+const hasInitiallyLoaded = ref(false)
+watch(
+  viewMode,
+  (newMode) => {
+    try {
+      localStorage.setItem('viewMode', newMode)
+    } catch (error) {
+      console.warn('Impossible de sauvegarder viewMode:', error)
+    }
+  },
+  { immediate: true },
+)
+
+// 🎯 Recherche des villes (ton code existant)
+const villeSuggestions = ref([])
+const villeLoading = ref(false)
+const selectedVille = ref(null)
+
+const cityCache = new Map()
+const CACHE_DURATION = 30 * 60 * 1000
+
+const searchCities = async (event) => {
+  const query = event.query.toLowerCase()
+  const cacheKey = query
+
+  // 🎯 Vérifier le cache
+  const cached = cityCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    villeSuggestions.value = cached.data
+    return
+  }
+
+  if (!query || query.length < 2) {
+    villeSuggestions.value = []
+    return
+  }
+
+  villeLoading.value = true
+
+  try {
+    const response = await fetch(
+      `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(query)}&boost=population&limit=10&fields=nom,code,codesPostaux,departement,population`,
+    )
+
+    const cities = await response.json()
+
+    const formattedCities = cities.map((city) => ({
+      nom: city.nom,
+      code: city.code,
+      codePostal: city.codesPostaux?.[0] || '',
+      departement: city.departement?.nom || '',
+      population: city.population || 0,
+      displayName: `${city.nom} (${city.departement?.nom || ''}) - ${city.codesPostaux?.[0] || ''}`,
+    }))
+
+    // 🎯 Mettre en cache
+    cityCache.set(cacheKey, {
+      data: formattedCities,
+      timestamp: Date.now(),
+    })
+
+    villeSuggestions.value = formattedCities
+  } catch (error) {
+    console.error('Erreur API communes:', error)
+    villeSuggestions.value = []
+  } finally {
+    villeLoading.value = false
+  }
+}
+
+const formatPopulation = (pop) => {
+  if (!pop || pop === 0) return ''
+  return `${pop.toLocaleString()} hab.`
+}
+
+const onVilleSelect = (event) => {
+  selectedVille.value = event.value
+  onFiltersChange()
+}
+
 // Lifecycle
-onMounted(() => {
-  serviceStore.fetchServicesPublic()
+onMounted(async () => {
+  try {
+    await serviceStore.fetchServicesPublic()
+    hasInitiallyLoaded.value = true
+
+    await nextTick()
+    if (viewMode.value === 'map' && mapContainer.value && !map.value) {
+      initMap()
+    }
+  } catch (error) {
+    console.error('Erreur:', error)
+    hasInitiallyLoaded.value = true
+  }
 })
 </script>
 
 <template>
-  <div class="container py-4">
+  <div v-cloak class="container py-4">
     <!-- Header -->
     <div class="row mb-4">
       <div class="col-12">
@@ -276,7 +386,7 @@ onMounted(() => {
               :class="viewMode === 'grid' ? 'btn-primary' : 'btn-outline-primary'"
               @click="switchToGrid"
             >
-              <i class="bi bi-grid-3x3-gap me-1"></i>Grille
+              <i class="bi bi-grid-3x3-gap me-1"></i>Liste
             </button>
             <button
               type="button"
@@ -297,52 +407,74 @@ onMounted(() => {
         <div class="card shadow-sm border-0">
           <div class="card-body">
             <div class="row g-3">
+              <!-- Recherche avec icône intégrée -->
               <div class="col-md-4">
-                <label for="search" class="form-label fw-semibold">
-                  <i class="bi bi-search me-1"></i>Rechercher
-                </label>
-                <input
-                  id="search"
-                  v-model="searchTerm"
-                  type="text"
-                  class="form-control"
-                  placeholder="Nom du service, description..."
-                  @input="onSearchChange"
-                />
+                <IconField icon-position="left">
+                  <InputIcon class="bi bi-search"></InputIcon>
+                  <InputText
+                    id="search"
+                    v-model="searchTerm"
+                    placeholder="Nom du service, description..."
+                    class="w-100"
+                    @input="onSearchChange"
+                  />
+                </IconField>
               </div>
 
+              <!-- Ville (pareil) -->
               <div class="col-md-4">
-                <label for="ville" class="form-label fw-semibold">
-                  <i class="bi bi-geo-alt me-1"></i>Ville
-                </label>
-                <input
-                  id="ville"
-                  v-model="villeFilter"
-                  type="text"
-                  class="form-control"
-                  placeholder="Nom de la ville"
-                  @input="onFiltersChange"
-                />
+                <IconField icon-position="left">
+                  <InputIcon class="bi bi-geo-alt"></InputIcon>
+                  <AutoComplete
+                    v-model="villeFilter"
+                    :suggestions="villeSuggestions"
+                    option-label="displayName"
+                    placeholder="Nom de la ville"
+                    :min-length="2"
+                    :delay="300"
+                    fluid
+                    class="w-100"
+                    :loading="villeLoading"
+                    empty-message="Aucune ville trouvée"
+                    @complete="searchCities"
+                    @item-select="onVilleSelect"
+                  >
+                    <template #item="slotProps">
+                      <div class="d-flex justify-content-between align-items-center w-100">
+                        <div>
+                          <strong>{{ slotProps.item.nom }}</strong>
+                          <small class="text-muted ms-2">({{ slotProps.item.departement }})</small>
+                        </div>
+                        <small class="text-muted">{{
+                          formatPopulation(slotProps.item.population)
+                        }}</small>
+                      </div>
+                    </template>
+                  </AutoComplete>
+                </IconField>
               </div>
 
+              <!-- Catégorie avec filtre et groupes -->
               <div class="col-md-4">
-                <label for="categorie" class="form-label fw-semibold">
-                  <i class="bi bi-tag me-1"></i>Catégorie
-                </label>
-                <select
-                  id="categorie"
+                <Select
                   v-model="categorieFilter"
-                  class="form-select"
+                  :options="categorieOptions"
+                  option-label="label"
+                  option-value="value"
+                  placeholder="Choisir une catégorie"
+                  class="w-100"
+                  show-clear
+                  filter
+                  filter-placeholder="Rechercher une catégorie"
                   @change="onFiltersChange"
                 >
-                  <option
-                    v-for="option in categorieOptions"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                  </option>
-                </select>
+                  <template #option="slotProps">
+                    <div class="d-flex align-items-center">
+                      <i :class="slotProps.option.icon || 'bi bi-tag'" class="me-2"></i>
+                      {{ slotProps.option.label }}
+                    </div>
+                  </template>
+                </Select>
               </div>
             </div>
           </div>
@@ -362,7 +494,7 @@ onMounted(() => {
         </div>
 
         <!-- No Results -->
-        <div v-else-if="services.length === 0" class="text-center py-5">
+        <div v-else-if="hasInitiallyLoaded && services.length === 0" class="text-center py-5">
           <i class="bi bi-search display-1 text-muted"></i>
           <h3 class="mt-3">Aucun service trouvé</h3>
           <p class="text-muted">Essayez de modifier vos critères de recherche</p>
@@ -413,9 +545,13 @@ onMounted(() => {
                   </p>
 
                   <div class="mt-auto pt-2">
-                    <button class="btn btn-outline-primary btn-sm">
-                      <i class="bi bi-eye me-1"></i>Voir détails
-                    </button>
+                    <router-link
+                      :to="{ name: 'ServicePublicDetail', params: { slug: service.slug } }"
+                      class="btn btn-outline-primary btn-sm"
+                      @click="loadServiceDetails(service.slug)"
+                    >
+                      <i class="bi bi-eye me-1"></i> Voir détails
+                    </router-link>
                   </div>
                 </div>
               </div>

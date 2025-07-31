@@ -111,15 +111,15 @@ const routes = [
       description: 'Découvrez et évaluez tous les services publics de votre région',
     },
   },
-  // {
-  //   path: '/services/:slug',
-  //   name: 'ServicePublicDetail',
-  //   component: () => import('@/views/ServicePublicDetail.vue'),
-  //   meta: {
-  //     title: 'Service Public - CitoyenNote',
-  //     description: 'Consultez les évaluations et informations détaillées de ce service public',
-  //   },
-  // },
+  {
+    path: '/services/:slug',
+    name: 'ServicePublicDetail',
+    component: () => import('@/views/ServicePublicDetail.vue'),
+    meta: {
+      title: 'Service Public - CitoyenNote',
+      description: 'Consultez les évaluations et informations détaillées de ce service public',
+    },
+  },
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
