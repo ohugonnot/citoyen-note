@@ -38,7 +38,13 @@ class ServicePublicController extends AbstractController
     {
         // Récupération des paramètres
         $search = $request->query->get('search', '');
-        $villeData = $request->query->all('ville') ?? []; 
+        $villeParam = $request->query->get('ville');
+
+        if (is_array($villeParam)) {
+            $villeData = $villeParam;
+        } else {
+            $villeData = !empty($villeParam) ? [$villeParam] : [];
+        }
         $categorie = $request->query->get('categorie');
         $page = max(1, (int) $request->query->get('page', 1));
         $limit = min(50, max(1, (int) $request->query->get('limit', 12)));
@@ -169,7 +175,7 @@ class ServicePublicController extends AbstractController
 
         // Filtre catégorie
         if (!empty($categorie)) {
-            $qb->andWhere('c.slug = :categorie')
+            $qb->andWhere('c.nom = :categorie')
             ->setParameter('categorie', $categorie);
         }
     }
