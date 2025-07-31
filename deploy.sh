@@ -31,7 +31,7 @@ sudo chown -R folken:www-data $APP_DIR
 #find $APP_DIR/var -type f -exec sudo chmod 664 {} \;
 
 echo "Import des Services publiques"
-php bin/console app:import-services ./src/Csv/services.csv --vider
+php bin/console app:import-services ./src/Csv/services.csv
 
 echo "Build frontend"
 cd cityavis-front
