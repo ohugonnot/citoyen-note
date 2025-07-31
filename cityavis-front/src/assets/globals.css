@@ -1,17 +1,17 @@
 :root {
   --color-primary: #000091;
-  --color-primary-light: #1212A0;
+  --color-primary-light: #1212a0;
   --color-primary-dark: #000070;
-  --color-secondary: #E1000F;
-  --color-accent: #18753C;
-  --color-gray: #6A6A6A;
-  --color-gray-light: #F5F7FF;
-  --color-gray-dark: #2C2C2C;
-  --color-white: #FFFFFF;
-  --color-background: #FAFBFC;
-  --color-border: #E3E7F0;
+  --color-secondary: #e1000f;
+  --color-accent: #18753c;
+  --color-gray: #6a6a6a;
+  --color-gray-light: #f5f7ff;
+  --color-gray-dark: #2c2c2c;
+  --color-white: #ffffff;
+  --color-background: #fafbfc;
+  --color-border: #e3e7f0;
   --color-text: #161616;
-  --color-text-light: #6A6A6A;
+  --color-text-light: #6a6a6a;
 
   --shadow-sm: 0 2px 4px rgba(0, 0, 145, 0.1);
   --shadow-md: 0 4px 12px rgba(0, 0, 145, 0.15);
@@ -72,8 +72,8 @@ body {
 }
 
 .btn-secondary:hover {
-  background-color: #C50011;
-  border-color: #C50011;
+  background-color: #c50011;
+  border-color: #c50011;
   transform: translateY(-1px);
 }
 
@@ -104,11 +104,6 @@ body {
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-sm);
   transition: var(--transition);
-}
-
-.card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
 }
 
 .form-control {
@@ -167,9 +162,18 @@ body {
 }
 
 @keyframes bounce {
-  0%, 20%, 60%, 100% { transform: translateY(0) scale(1.1); }
-  40% { transform: translateY(-10px) scale(1.1); }
-  80% { transform: translateY(-5px) scale(1.1); }
+  0%,
+  20%,
+  60%,
+  100% {
+    transform: translateY(0) scale(1.1);
+  }
+  40% {
+    transform: translateY(-10px) scale(1.1);
+  }
+  80% {
+    transform: translateY(-5px) scale(1.1);
+  }
 }
 
 .mobile-first {
@@ -197,9 +201,15 @@ body {
 }
 
 @keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 .fade-in {
@@ -207,8 +217,14 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .loading-spinner {
@@ -221,8 +237,12 @@ body {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 576px) {
@@ -252,7 +272,6 @@ body {
     text-align: center !important;
   }
 }
-
 
 * {
   color-scheme: light !important;

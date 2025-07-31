@@ -21,7 +21,7 @@ const categories = computed(() => servicesPublic.value?.categories || [])
 
 // Filters
 const searchTerm = ref('')
-const villeFilter = ref('')
+const villeFilter = ref([])
 const categorieFilter = ref(null)
 
 const getStoredViewMode = () => {
@@ -54,7 +54,7 @@ const applyFilters = async () => {
   try {
     await serviceStore.fetchServicesPublic({
       search: searchTerm.value,
-      ville: villeFilter.value,
+      ville: villeFilter.value || [],
       categorie: categorieFilter.value,
       page: 1,
     })
@@ -335,6 +335,12 @@ const searchCities = async (event) => {
   }
 }
 
+const onVilleClear = () => {
+  selectedVille.value = null
+  villeFilter.value = []
+  onFiltersChange()
+}
+
 const formatPopulation = (pop) => {
   if (!pop || pop === 0) return ''
   return `${pop.toLocaleString()} hab.`
@@ -438,6 +444,7 @@ onMounted(async () => {
                     empty-message="Aucune ville trouvée"
                     @complete="searchCities"
                     @item-select="onVilleSelect"
+                    @clear="onVilleClear"
                   >
                     <template #item="slotProps">
                       <div class="d-flex justify-content-between align-items-center w-100">
