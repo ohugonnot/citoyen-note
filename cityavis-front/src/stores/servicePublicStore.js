@@ -1,22 +1,10 @@
-// src/stores/servicePublicStore.js
+'' // src/stores/servicePublicStore.js
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import {
-  fetchServicesPublics,
-  fetchServicePublicById,
-  createServicePublic,
-  updateServicePublic,
-  deleteServicePublic,
-  bulkDeleteServicesPublics,
-  importServicesPublicsCSV,
-  getServicesPublicsStats,
-  getRecentServicesPublics,
-} from '@/api/servicesPublics'
+import api from '@/api/servicesPublics'
+import servicesPublics from '@/api/servicesPublics'
 
 export const useServicePublicStore = defineStore('servicePublic', () => {
-  // =============================================
-  // CONSTANTES
-  // =============================================
   const DEFAULT_FILTERS = {
     search: '',
     categorie: null,
@@ -40,24 +28,10 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     hasPrev: false,
   }
 
-  const ERROR_MESSAGES = {
-    FETCH_SERVICES: 'Impossible de charger les services publics',
-    SERVICE_NOT_FOUND: 'Service public introuvable',
-    CREATE_ERROR: 'Erreur lors de la création du service',
-    UPDATE_ERROR: 'Erreur lors de la modification du service',
-    DELETE_ERROR: 'Erreur lors de la suppression du service',
-    BULK_DELETE_ERROR: 'Erreur lors de la suppression en masse',
-    IMPORT_CSV_ERROR: "Erreur lors de l'import CSV",
-    STATS_ERROR: 'Erreur lors du chargement des statistiques',
-    RECENT_SERVICES_ERROR: 'Erreur lors du chargement des services récents',
-  }
-
   const DEFAULT_RECENT_LIMIT = 10
 
-  // =============================================
-  // STATE
-  // =============================================
   const services = ref([])
+  const servicesPublic = ref([])
   const currentService = ref(null)
   const stats = ref({})
   const recentServices = ref([])
@@ -67,28 +41,6 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
 
   const filters = ref({ ...DEFAULT_FILTERS })
   const pagination = ref({ ...DEFAULT_PAGINATION })
-
-  // =============================================
-  // UTILITAIRES PRIVÉS
-  // =============================================
-  const handleError = (errorMessage, originalError) => {
-    error.value = errorMessage
-    console.error('Store error:', originalError)
-    throw originalError
-  }
-
-  const executeAsyncAction = async (action, errorMessage) => {
-    isLoading.value = true
-    error.value = null
-
-    try {
-      return await action()
-    } catch (err) {
-      handleError(errorMessage, err)
-    } finally {
-      isLoading.value = false
-    }
-  }
 
   const updateFiltersFromResponse = (data) => {
     if (data.filters) {
@@ -104,194 +56,153 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     }
   }
 
-  const updateServiceInList = (id, updatedService) => {
-    const index = services.value.findIndex((s) => s.id === id)
-    if (index !== -1) {
-      services.value[index] = updatedService
-    }
+  const updateInList = (id, updated) => {
+    const i = services.value.findIndex((s) => s.id === id)
+    if (i !== -1) services.value[i] = updated
   }
 
-  const updateCurrentServiceIfNeeded = (id, updatedService) => {
-    if (currentService.value?.id === id) {
-      currentService.value = updatedService
-    }
-  }
-
-  const removeServiceFromList = (id) => {
+  const removeFromList = (id) => {
     services.value = services.value.filter((s) => s.id !== id)
   }
 
-  const removeServicesFromList = (ids) => {
+  const removeFromListBulk = (ids) => {
     services.value = services.value.filter((s) => !ids.includes(s.id))
   }
 
-  const clearCurrentServiceIfNeeded = (id) => {
-    if (currentService.value?.id === id) {
-      currentService.value = null
+  const execute = async (action) => {
+    isLoading.value = true
+    error.value = null
+    try {
+      return await action()
+    } catch (err) {
+      error.value = err.message || 'Erreur'
+      throw err
+    } finally {
+      isLoading.value = false
     }
   }
 
-  const clearCurrentServiceIfInIds = (ids) => {
-    if (currentService.value && ids.includes(currentService.value.id)) {
-      currentService.value = null
-    }
-  }
-
-  const updateTotal = (amount) => {
-    pagination.value.total += amount
-  }
-
-  const isValidPage = (page) => {
-    return page >= 1 && page <= pagination.value.totalPages
-  }
-
-  // =============================================
-  // GETTERS
-  // =============================================
   const servicesCount = computed(() => services.value.length)
 
   const servicesByStatut = computed(() => {
-    return services.value.reduce((acc, service) => {
-      const statut = service.statut || 'actif'
+    return services.value.reduce((acc, s) => {
+      const statut = s.statut || 'actif'
       acc[statut] = acc[statut] || []
-      acc[statut].push(service)
+      acc[statut].push(s)
       return acc
     }, {})
   })
 
-  const servicesActifs = computed(() => {
-    return services.value.filter((service) => service.statut === 'actif')
-  })
+  const servicesActifs = computed(() => services.value.filter((s) => s.statut === 'actif'))
 
   const servicesByCategorie = computed(() => {
-    return services.value.reduce((acc, service) => {
-      const categorieNom = service.categorie?.nom || 'Autres'
-      acc[categorieNom] = acc[categorieNom] || []
-      acc[categorieNom].push(service)
+    return services.value.reduce((acc, s) => {
+      const c = s.categorie?.nom || 'Autres'
+      acc[c] = acc[c] || []
+      acc[c].push(s)
       return acc
     }, {})
   })
 
   const hasFilters = computed(() => {
-    return Object.entries(filters.value).some(([key, value]) => {
-      if (key === 'page' || key === 'limit') return false
-      return value !== null && value !== '' && value !== undefined
-    })
+    return Object.entries(filters.value).some(
+      ([k, v]) => !['page', 'limit'].includes(k) && v != null && v !== '',
+    )
   })
 
-  // =============================================
-  // ACTIONS
-  // =============================================
   const fetchServices = async (params = {}) => {
-    return executeAsyncAction(async () => {
-      const mergedParams = {
+    return execute(async () => {
+      const merged = {
         ...filters.value,
         ...params,
         page: params.page ?? filters.value.page,
         limit: params.limit ?? filters.value.limit,
       }
-
-      const data = await fetchServicesPublics(mergedParams)
-
+      const data = await api.getAll(merged)
       services.value = data.data || data
       updateFiltersFromResponse(data)
       updatePaginationFromResponse(data)
-
       return data
-    }, ERROR_MESSAGES.FETCH_SERVICES)
+    })
   }
 
   const fetchServiceById = async (id, force = false) => {
     if (!force) {
-      const cachedService = services.value.find((s) => s.id === id)
-      if (cachedService) {
-        currentService.value = cachedService
-        return cachedService
+      const found = services.value.find((s) => s.id === id)
+      if (found) {
+        currentService.value = found
+        return found
       }
     }
-
-    return executeAsyncAction(async () => {
-      const service = await fetchServicePublicById(id)
-      currentService.value = service
-      updateServiceInList(id, service)
-      return service
-    }, ERROR_MESSAGES.SERVICE_NOT_FOUND)
+    return execute(async () => {
+      const s = await api.getOne(id)
+      currentService.value = s
+      updateInList(id, s)
+      return s
+    })
   }
 
-  const createService = async (serviceData) => {
-    return executeAsyncAction(async () => {
-      const newService = await createServicePublic(serviceData)
-      services.value.unshift(newService)
-      updateTotal(1)
-      return newService
-    }, ERROR_MESSAGES.CREATE_ERROR)
+  const createService = async (data) => {
+    return execute(async () => {
+      const created = await api.create(data)
+      services.value.unshift(created)
+      pagination.value.total += 1
+      return created
+    })
   }
 
-  const updateService = async (id, serviceData) => {
-    return executeAsyncAction(async () => {
-      const updatedService = await updateServicePublic(id, serviceData)
-      updateServiceInList(id, updatedService)
-      updateCurrentServiceIfNeeded(id, updatedService)
-      return updatedService
-    }, ERROR_MESSAGES.UPDATE_ERROR)
+  const updateService = async (id, data) => {
+    return execute(async () => {
+      const updated = await api.update(id, data)
+      updateInList(id, updated)
+      if (currentService.value?.id === id) currentService.value = updated
+      return updated
+    })
   }
 
   const deleteService = async (id) => {
-    return executeAsyncAction(async () => {
-      await deleteServicePublic(id)
-      removeServiceFromList(id)
-      clearCurrentServiceIfNeeded(id)
-      updateTotal(-1)
-      return true
-    }, ERROR_MESSAGES.DELETE_ERROR)
+    return execute(async () => {
+      await api.delete(id)
+      removeFromList(id)
+      if (currentService.value?.id === id) currentService.value = null
+      pagination.value.total -= 1
+    })
   }
 
   const bulkDeleteServices = async (ids) => {
-    return executeAsyncAction(async () => {
-      await bulkDeleteServicesPublics(ids)
-      removeServicesFromList(ids)
-      clearCurrentServiceIfInIds(ids)
-      updateTotal(-ids.length)
-      return true
-    }, ERROR_MESSAGES.BULK_DELETE_ERROR)
+    return execute(async () => {
+      await api.bulkDelete(ids)
+      removeFromListBulk(ids)
+      if (currentService.value && ids.includes(currentService.value.id)) currentService.value = null
+      pagination.value.total -= ids.length
+    })
   }
 
   const importCSV = async (file, clearExisting = false) => {
-    return executeAsyncAction(async () => {
-      const result = await importServicesPublicsCSV(file, clearExisting)
+    return execute(async () => {
+      const res = await api.importCSV(file, clearExisting)
       await fetchServices()
-      return result
-    }, ERROR_MESSAGES.IMPORT_CSV_ERROR)
+      return res
+    })
   }
 
   const fetchStats = async () => {
     isLoadingStats.value = true
     try {
-      const statsData = await getServicesPublicsStats()
-      stats.value = statsData
-      return statsData
-    } catch (err) {
-      console.error(ERROR_MESSAGES.STATS_ERROR, err)
-      throw err
+      const res = await api.getStats()
+      stats.value = res
+      return res
     } finally {
       isLoadingStats.value = false
     }
   }
 
   const fetchRecentServices = async (limit = DEFAULT_RECENT_LIMIT) => {
-    try {
-      const recent = await getRecentServicesPublics(limit)
-      recentServices.value = recent
-      return recent
-    } catch (err) {
-      console.error(ERROR_MESSAGES.RECENT_SERVICES_ERROR, err)
-      throw err
-    }
+    const res = await api.getRecent(limit)
+    recentServices.value = res
+    return res
   }
 
-  // =============================================
-  // ACTIONS DE NAVIGATION ET FILTRES
-  // =============================================
   const updateFilters = (newFilters) => {
     Object.assign(filters.value, newFilters)
   }
@@ -306,10 +217,8 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
   }
 
   const goToPage = async (page) => {
-    if (isValidPage(page)) {
-      filters.value.page = page
-      await fetchServices({ page })
-    }
+    filters.value.page = page
+    await fetchServices({ page })
   }
 
   const nextPage = async () => {
@@ -320,33 +229,30 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     await goToPage(filters.value.page - 1)
   }
 
-  const changeItemsPerPage = async (newLimit) => {
-    filters.value.limit = newLimit
+  const changeItemsPerPage = async (limit) => {
+    filters.value.limit = limit
     filters.value.page = 1
-    await fetchServices({ page: 1, limit: newLimit })
+    await fetchServices({ page: 1, limit })
   }
 
-  // =============================================
-  // ACTIONS UTILITAIRES
-  // =============================================
   const resetError = () => {
     error.value = null
-  }
-
-  const clearCurrentService = () => {
-    currentService.value = null
   }
 
   const refreshServices = async () => {
     await fetchServices({ force: true })
   }
 
-  // =============================================
-  // EXPORTS
-  // =============================================
+  // Méthode pour récupérer un service par slug (public)
+  const fetchServicesPublic = async (params) => {
+    const res = await api.getAllPublic(params)
+    servicesPublic.value = res
+    return res
+  }
+
   return {
-    // State
     services,
+    servicesPublic,
     currentService,
     stats,
     recentServices,
@@ -356,15 +262,14 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     pagination,
     filters,
 
-    // Getters
     servicesCount,
     servicesByStatut,
     servicesActifs,
     servicesByCategorie,
     hasFilters,
 
-    // Actions
     fetchServices,
+    fetchServicesPublic,
     fetchServiceById,
     createService,
     updateService,
@@ -381,7 +286,6 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     previousPage,
     changeItemsPerPage,
     resetError,
-    clearCurrentService,
     refreshServices,
   }
 })

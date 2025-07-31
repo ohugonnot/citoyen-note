@@ -429,15 +429,16 @@
                             <i :class="getStatutIcon(user.statut)" class="me-1"></i>
                             {{ getStatutLabel(user.statut) }}
                           </span>
-                          <span
-                            v-for="role in user.roles.slice(0, 1)"
-                            v-if="user.roles?.length"
-                            :key="role"
-                            :class="getRoleBadgeClass(role)"
-                            class="badge badge-sm"
-                          >
-                            {{ getRoleLabel(role) }}
-                          </span>
+                          <template v-if="user.roles?.length">
+                            <span
+                              v-for="role in user.roles.slice(0, 1)"
+                              :key="role"
+                              :class="getRoleBadgeClass(role)"
+                              class="badge badge-sm"
+                            >
+                              {{ getRoleLabel(role) }}
+                            </span>
+                          </template>
                           <span v-if="user.scoreFiabilite !== null" class="text-muted">
                             <i class="pi pi-star-fill me-1"></i>
                             {{ user.scoreFiabilite }}%
@@ -597,12 +598,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { debounce } from 'lodash'
 import { useToast } from 'primevue/usetoast'
-import {
-  fetchUsers as fetchAllUsers,
-  deleteUser as deleteUserById,
-  bulkDeleteUsers,
-  getUserStats,
-} from '@/api/users'
+import apiUser from '@/api/users'
+
 import { useRouter } from 'vue-router'
 
 import CreateUserModal from '@/views/CreateUser.vue'
@@ -789,7 +786,7 @@ const fetchUsers = async () => {
       }
     })
 
-    const response = await fetchAllUsers(params)
+    const response = await apiUser.getAll(params)
 
     users.value = response.data || []
     pagination.value = {
@@ -811,7 +808,7 @@ const fetchUsers = async () => {
 
 const fetchStats = async () => {
   try {
-    stats.value = await getUserStats()
+    stats.value = await apiUser.getStats()
   } catch (err) {
     console.warn('[fetchStats] Erreur:', err)
   }
@@ -885,7 +882,7 @@ const deleteUser = async () => {
   if (!userToDelete.value) return
 
   try {
-    await deleteUserById(userToDelete.value.id)
+    await apiUser.delete(userToDelete.value.id)
     toast.add({
       severity: 'success',
       summary: 'Succès',
@@ -923,7 +920,7 @@ const bulkDelete = async () => {
 
   try {
     const ids = selectedUsers.value.map((user) => user.id)
-    const result = await bulkDeleteUsers(ids)
+    const result = await apiUser.bulkDelete(ids)
 
     toast.add({
       severity: 'success',

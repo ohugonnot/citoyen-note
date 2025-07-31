@@ -104,6 +104,11 @@ class ServicePublic
         $this->generateSlug();
     }
 
+    public function getSlug(): ?string
+    {
+        return $this->slug;
+    }
+
     // Relations
     #[ORM\ManyToOne(targetEntity: CategorieService::class, inversedBy: 'servicesPublics')]
     #[ORM\JoinColumn(nullable: true)]

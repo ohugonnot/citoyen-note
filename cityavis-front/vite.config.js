@@ -1,6 +1,4 @@
-
 import { fileURLToPath, URL } from 'node:url'
-
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
@@ -28,7 +26,7 @@ export default defineConfig({
           dest: 'images/leaflet',
         },
         {
-          src: '.htaccess', // Ajouter cette ligne
+          src: '.htaccess',
           dest: '.',
         },
       ],

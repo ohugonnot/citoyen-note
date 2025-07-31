@@ -6,6 +6,7 @@ namespace App\Service;
 use App\Dto\CreateServicePublicDto;
 use App\Dto\UpdateServicePublicDto;
 use App\Entity\CategorieService;
+use App\Entity\Evaluation;
 use App\Entity\ServicePublic;
 use App\Enum\StatutService;
 use App\Repository\CategorieServiceRepository;
@@ -143,10 +144,11 @@ class ServicePublicManager
         $id = null;
         $nom = null;
         if (!empty($donnees["type_service"])) {
-          $nom = $donnees["type_service"];
+            $nom = $donnees["type_service"];
+            $categorieNom = str_replace('É', 'E', $nom);
         }
         if (!empty($donnees["categorie"])) {
-           $id = $donnees["categorie"];
+            $id = $donnees["categorie"];
         }
         
         if (empty($id) && empty($nom)) {
@@ -162,22 +164,81 @@ class ServicePublicManager
         }
 
         if (!empty($nom)) {
-            $categorie = $this->categorieServiceRepository->findOneBy(['nom' => $nom]);
+            $categorie = $this->categorieServiceRepository->findOneBy(['nom' => $categorieNom]);
             if ($categorie) {
                 $service->setCategorie($categorie);
                 return;
             }
         }
- 
+    
         if (!$categorie && !empty($nom)) {
             $categorie = new CategorieService();
-            $categorieNom = str_replace('É', 'E', $nom);
+            
+            $iconesMapping = [
+                'Mairie' => 'bi-building',
+                'Préfecture' => 'bi-building-check',       
+                'Sous-Préfecture' => 'bi-building-gear',    
+                'Hôpital' => 'bi-hospital',                 
+                'CAF' => 'bi-people-fill',
+                'Pôle Emploi' => 'bi-briefcase',          
+                'CPAM' => 'bi-heart-pulse',
+                'URSSAF' => 'bi-calculator',
+                'Tribunal' => 'bi-scale',
+                'Conseil Départemental' => 'bi-bank',     
+                'Métropole' => 'bi-buildings',              
+                'Centre des Impôts' => 'bi-receipt',        
+                'Trésorerie' => 'bi-coin',                  
+                'MDPH' => 'bi-person-wheelchair',
+                'Police' => 'bi-shield-check',
+                'Gendarmerie' => 'bi-shield-fill',
+                'Éducation' => 'bi-mortarboard',            
+                'Université' => 'bi-book',                
+                'École' => 'bi-backpack',                   
+                'Bibliothèque' => 'bi-journal-bookmark',   
+                'Archives' => 'bi-archive'
+            ];
+            
+            $couleursMapping = [
+                'Mairie' => '#0d6efd',
+                'Préfecture' => '#6610f2',
+                'Sous-Préfecture' => '#6f42c1',
+                'Hôpital' => '#dc3545',
+                'CAF' => '#20c997',
+                'Pôle Emploi' => '#fd7e14',
+                'CPAM' => '#e83e8c',
+                'URSSAF' => '#6c757d',
+                'Tribunal' => '#495057',
+                'Conseil Départemental' => '#198754',
+                'Métropole' => '#0dcaf0',
+                'Centre des Impôts' => '#ffc107',
+                'Trésorerie' => '#fd7e14',
+                'MDPH' => '#d63384',
+                'Police' => '#0f5132',
+                'Gendarmerie' => '#084298',
+                'Éducation' => '#0a58ca',
+                'Université' => '#6f42c1',
+                'École' => '#0dcaf0',
+                'Bibliothèque' => '#6610f2',
+                'Archives' => '#495057'
+            ];
+            
+            // 🔥 IMPORTANT : Mapper AVANT de transformer
+            $icone = $iconesMapping[$nom] ?? 'bi-building';  // $nom avec accents
+            $couleur = $couleursMapping[$nom] ?? '#6c757d';   // $nom avec accents
+            
+            // PUIS transformer pour la BDD
+
             $categorie->setNom($categorieNom);
+            $categorie->setIcone($icone);
+            $categorie->setCouleur($couleur);
+            
             $this->entityManager->persist($categorie);
         }
         
         $service->setCategorie($categorie);
     }
+
+
 
     public function modifier(ServicePublic $service, UpdateServicePublicDto $dto): ServicePublic
     {
@@ -247,12 +308,24 @@ class ServicePublicManager
 
     private function viderTableServicePublic(): int
     {
-        // Compter avant suppression
-        $count = $this->repository->count([]);
+        $services = $this->repository->findAll();
+        $count = count($services);
         
         if ($count > 0) {
-            $query = $this->entityManager->createQuery('DELETE FROM App\Entity\ServicePublic sp');
-            $query->execute();
+            foreach ($services as $service) {
+                $this->entityManager->remove($service);
+            }
+            $this->entityManager->flush();
+
+            $evaluations = $this->entityManager->getRepository(Evaluation::class)->findAll();
+            foreach ($evaluations as $evaluation) {
+                $this->entityManager->remove($evaluation);
+            }
+            $this->entityManager->flush();
+            $categories = $this->entityManager->getRepository(CategorieService::class)->findAll();
+            foreach ($categories as $categorie) {
+                $this->entityManager->remove($categorie);
+            }
             $this->entityManager->flush();
         }
         

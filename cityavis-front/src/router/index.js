@@ -4,7 +4,7 @@ const routes = [
   {
     path: '/',
     name: 'Home',
-    component: () => import('@/views/HomeView.vue'),
+    component: () => import('@/views/ServicesPublics.vue'),
     meta: {
       title: 'Accueil - CitoyenNote',
       description: 'Évaluez et améliorez vos services publics locaux',
@@ -90,6 +90,34 @@ const routes = [
       requiresAuth: true,
       requiresAdmin: false,
       title: 'Modifier un Service Public - CitoyenNote',
+    },
+  },
+  {
+    path: '/admin/evaluations',
+    name: 'AdminEvaluations',
+    component: () => import('@/views/EvaluationsList.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Gestion des évaluations - CitoyenNote',
+    },
+  },
+  {
+    path: '/services',
+    name: 'ServicesPublics',
+    component: () => import('@/views/ServicesPublics.vue'),
+    meta: {
+      title: 'Services Publics - CitoyenNote',
+      description: 'Découvrez et évaluez tous les services publics de votre région',
+    },
+  },
+  {
+    path: '/services/:slug',
+    name: 'ServicePublicDetail',
+    component: () => import('@/views/ServicePublicDetail.vue'),
+    meta: {
+      title: 'Service Public - CitoyenNote',
+      description: 'Consultez les évaluations et informations détaillées de ce service public',
     },
   },
   {

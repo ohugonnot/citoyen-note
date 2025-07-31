@@ -6,8 +6,8 @@
           class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3"
         >
           <div>
-            <h1 class="h3 mb-2 mb-md-0">Services Publics</h1>
-            <p class="text-muted mb-0">Gestion des services publics référencés</p>
+            <h1 class="h3 mb-2 mb-md-0">Services Publiques</h1>
+            <p class="text-muted mb-0">Gestion des services publiques référencés</p>
           </div>
           <div class="d-flex flex-row gap-2 pt-2">
             <Button
@@ -238,7 +238,7 @@
             </Column>
 
             <Column
-              field="categorie_nom"
+              field="categorie.nom"
               header="Catégorie"
               :sortable="true"
               :sort-field="'categorie.nom'"
@@ -358,7 +358,7 @@
                   {{
                     hasActiveFilters
                       ? 'Aucun service ne correspond à vos critères de recherche.'
-                      : 'Commencez par créer votre premier service public.'
+                      : 'Commencez par créer votre premier service publique.'
                   }}
                 </p>
                 <Button

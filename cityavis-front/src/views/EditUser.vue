@@ -282,7 +282,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
-import { fetchUserById, updateUser } from '@/api/users'
+import apiUser from '@/api/users'
 
 // Composables
 const route = useRoute()
@@ -372,7 +372,7 @@ const validateForm = () => {
 // Cycle de vie
 onMounted(async () => {
   try {
-    const user = await fetchUserById(route.params.id)
+    const user = await apiUser.getById(route.params.id)
 
     form.value = {
       id: user.id,
@@ -423,7 +423,7 @@ const submitForm = async () => {
         : null,
     }
 
-    await updateUser(form.value.id, payload)
+    await apiUser.update(form.value.id, payload)
 
     toast.add({
       severity: 'success',

@@ -429,7 +429,7 @@ import Dialog from 'primevue/dialog'
 import Button from 'primevue/button'
 import MultiSelect from 'primevue/multiselect'
 import { useToast } from 'primevue/usetoast'
-import { createUser } from '@/api/users'
+import apiClient from '@/axios'
 
 // Props et émissions
 const props = defineProps({
@@ -582,7 +582,7 @@ const submitCreateUser = async () => {
     delete userData.confirmPassword
 
     // Appel à votre API (à décommenter et adapter)
-    const newUser = await createUser(userData)
+    const newUser = await apiClient.create(userData)
 
     toast.add({
       severity: 'success',

@@ -6,6 +6,8 @@ use App\Entity\ServicePublic;
 use App\Helper\ServicePublicJsonHelper;
 use App\Repository\ServicePublicRepository;
 use App\Dto\{ServicePublicFilterDto, CreateServicePublicDto, UpdateServicePublicDto};
+use App\Helper\EvaluationJsonHelper;
+use App\Service\EvaluationManager;
 use App\Service\ServicePublicManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\{JsonResponse, Request};
@@ -13,6 +15,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\Validator\Exception\ValidationFailedException;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 #[Route('/api/admin/services-publics', name: 'admin_service_public_')]
 class ServicePublicController extends AbstractController
@@ -25,7 +28,8 @@ class ServicePublicController extends AbstractController
         private readonly ServicePublicManager $servicePublicService,
         private readonly ServicePublicRepository $servicePublicRepository,
         private readonly ValidatorInterface $validator,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly EvaluationManager $evaluationManager
     ) {}
 
     #[Route('', name: 'index', methods: ['GET'])]
@@ -34,7 +38,7 @@ class ServicePublicController extends AbstractController
         $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
 
         try {
-            $filterDto = $this->createFilterDto($request);
+            $filterDto = $this::createFilterDtoFromRequest($request);
             $result = $this->servicePublicRepository->findServicesWithFilters($filterDto);
             
             return $this->json([
@@ -231,8 +235,7 @@ class ServicePublicController extends AbstractController
         }
     }
 
-    // ✅ Méthodes privées
-    private function createFilterDto(Request $request): ServicePublicFilterDto
+    private static function createFilterDtoFromRequest(Request $request): ServicePublicFilterDto
     {
         return new ServicePublicFilterDto(
             $request->query->get('search', ''),

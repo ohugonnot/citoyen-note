@@ -5,7 +5,7 @@ namespace App\Controller\Admin;
 use App\Entity\User;
 use App\Helper\UserJsonHelper;
 use App\Repository\UserRepository;
-use App\Service\UserService;
+use App\Service\UserManager;
 use App\Dto\{UserFilterDto, CreateUserDto, UpdateUserDto};
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\{JsonResponse, Request};
@@ -22,7 +22,7 @@ class UserController extends AbstractController
     private const MAX_RECENT_LIMIT = 50;
 
     public function __construct(
-        private readonly UserService $userService,
+        private readonly UserManager $userManager,
         private readonly UserRepository $userRepository,
         private readonly ValidatorInterface $validator,
         private readonly LoggerInterface $logger
@@ -33,7 +33,7 @@ class UserController extends AbstractController
         $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
 
         try {
-            $filterDto = $this->createFilterDto($request);
+            $filterDto = $this::createUserFilterDtoFromRequest($request);
             $result = $this->userRepository->findUsersWithFilters($filterDto);
             
             return $this->json([
@@ -45,6 +45,19 @@ class UserController extends AbstractController
         } catch (\Exception $e) {
             return $this->handleError($e, 'Erreur lors de la récupération des utilisateurs');
         }
+    }
+
+    public static function createUserFilterDtoFromRequest(Request $request):  UserFilterDto
+    {
+        return new UserFilterDto(
+            $request->query->get('search', ''),
+            max(1, (int) $request->query->get('page', 1)),
+            min(50, max(1, (int) $request->query->get('limit', 10))),
+            $request->query->get('sortField', 'id'),
+            $request->query->get('sortOrder', 'asc'),
+            $request->query->get('role'),
+            $request->query->get('statut')
+        );
     }
 
     #[Route('/{id}', name: 'show', requirements: ['id' => '\d+'], methods: ['GET'])]
@@ -73,7 +86,7 @@ class UserController extends AbstractController
             if (count($violations) > 0) {
                 throw new ValidationFailedException($createDto, $violations);
             }
-            $user = $this->userService->createUser($createDto);
+            $user = $this->userManager->createUser($createDto);
 
             return $this->json(UserJsonHelper::build($user), 201);
 
@@ -97,7 +110,7 @@ class UserController extends AbstractController
             if (count($violations) > 0) {
                 throw new ValidationFailedException($updateDto, $violations);
             }
-            $updatedUser = $this->userService->updateUser($user, $updateDto);
+            $updatedUser = $this->userManager->updateUser($user, $updateDto);
  
             return $this->json(UserJsonHelper::build($updatedUser));
 
@@ -120,7 +133,7 @@ class UserController extends AbstractController
                 return $this->json(['error' => 'Vous ne pouvez pas supprimer votre propre compte'], 403);
             }
 
-            $this->userService->deleteUser($user);
+            $this->userManager->deleteUser($user);
 
             return $this->json(['message' => 'Utilisateur supprimé avec succès']);
 
@@ -146,7 +159,7 @@ class UserController extends AbstractController
                 return $this->json(['error' => "Maximum " . self::MAX_BULK_LIMIT . " utilisateurs à la fois"], 422);
             }
 
-            $deletedCount = $this->userService->bulkDeleteUsers($ids, $this->getUser());
+            $deletedCount = $this->userManager->bulkDeleteUsers($ids, $this->getUser());
 
             return $this->json([
                 'message' => "$deletedCount utilisateur(s) supprimé(s)",
@@ -186,20 +199,6 @@ class UserController extends AbstractController
         } catch (\Exception $e) {
             return $this->handleError($e, 'Erreur lors de la récupération des utilisateurs récents');
         }
-    }
-
-    // ✅ Méthodes privées pour la lisibilité
-    private function createFilterDto(Request $request): UserFilterDto
-    {
-        return new UserFilterDto(
-            $request->query->get('search', ''),
-            max(1, (int) $request->query->get('page', 1)),
-            min(50, max(1, (int) $request->query->get('limit', 10))),
-            $request->query->get('sortField', 'id'),
-            $request->query->get('sortOrder', 'asc'),
-            $request->query->get('role'),
-            $request->query->get('statut')
-        );
     }
 
     private function buildPaginationData(array $result, UserFilterDto $filterDto): array

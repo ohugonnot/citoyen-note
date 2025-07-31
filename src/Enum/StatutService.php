@@ -1,5 +1,4 @@
 <?php
-// src/Enum/StatutService.php
 
 namespace App\Enum;
 
@@ -9,7 +8,6 @@ enum StatutService: string
     case FERME = 'ferme';
     case TRAVAUX = 'travaux';
     case SUSPENDU = 'suspendu';
-
 
     public function getLabel(): string
     {

@@ -51,6 +51,8 @@ import Rating from 'primevue/rating'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import Textarea from 'primevue/textarea'
+import Tooltip from 'primevue/tooltip'
+import AutoComplete from 'primevue/autocomplete'
 
 // Enregistrement automatique des composants
 const components = {
@@ -78,6 +80,7 @@ const components = {
   IconField,
   InputIcon,
   Textarea,
+  AutoComplete,
 }
 
 ;(async () => {
@@ -127,6 +130,6 @@ const components = {
   Object.entries(components).forEach(([name, component]) => {
     app.component(name, component)
   })
-
+  app.directive('tooltip', Tooltip)
   app.mount('#app')
 })()

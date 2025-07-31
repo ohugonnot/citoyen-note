@@ -9,9 +9,9 @@
               <div>
                 <h1 class="h3 mb-1 fw-bold text-primary">
                   <i class="bi bi-plus-circle-fill me-2"></i>
-                  Nouveau service public
+                  Nouveau service publique
                 </h1>
-                <p class="text-muted mb-0">Ajoutez un nouveau service public à la plateforme</p>
+                <p class="text-muted mb-0">Ajoutez un nouveau service publique à la plateforme</p>
               </div>
               <Button
                 label="Retour"
@@ -175,7 +175,7 @@ const creerService = async () => {
     toast.add({
       severity: 'success',
       summary: 'Service créé',
-      detail: 'Le service public a été créé avec succès',
+      detail: 'Le service publique a été créé avec succès',
       life: 4000,
     })
 

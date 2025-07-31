@@ -206,7 +206,7 @@ class Evaluation
                $this->nombreSignalement < 3;
     }
 
-    public function getPseudoAffichage(): string
+    public function getPseudoAffichage(): ?string
     {
         return $this->estAnonyme ? 'Anonyme' : $this->user->getPseudo();
     }

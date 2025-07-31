@@ -13,7 +13,7 @@ use Symfony\Component\Validator\ConstraintViolation;
 use Symfony\Component\Validator\ConstraintViolationList;
 use Psr\Log\LoggerInterface;
 
-class UserService
+class UserManager
 {
     private const VALID_ROLES = ['ROLE_USER', 'ROLE_ADMIN', 'ROLE_MODERATOR', 'ROLE_SUPER_ADMIN'];
     private const DEFAULT_ROLE = 'ROLE_USER';

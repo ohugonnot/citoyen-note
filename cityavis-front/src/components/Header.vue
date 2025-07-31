@@ -77,13 +77,6 @@
                 </router-link>
               </li>
 
-              <li>
-                <router-link class="dropdown-item d-flex align-items-center gap-2" to="/settings">
-                  <i class="bi bi-gear"></i>
-                  Paramètres
-                </router-link>
-              </li>
-
               <template v-if="isAdmin">
                 <li><hr class="dropdown-divider" /></li>
                 <li>
@@ -113,10 +106,10 @@
                 <li>
                   <router-link
                     class="dropdown-item d-flex align-items-center gap-2 pl-4"
-                    to="/admin/analytics"
+                    to="/admin/evaluations"
                   >
-                    <i class="bi bi-graph-up"></i>
-                    Statistiques
+                    <i class="bi bi-star"></i>
+                    Gestion des évaluations
                   </router-link>
                 </li>
               </template>

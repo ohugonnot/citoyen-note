@@ -161,12 +161,12 @@ const chargerService = async () => {
       adresse: service.adresse || '',
       code_postal: service.code_postal || '',
       ville: service.ville || '',
-      latitude: service.latitude || null,
-      longitude: service.longitude || null,
+      latitude: service.coordinates?.latitude || null,
+      longitude: service.coordinates?.longitude || null,
       telephone: service.telephone || '',
       email: service.email || '',
       site_web: service.site_web || '',
-      categorie: service.categorie || null,
+      categorie: service.categorie?.id || null,
       accessibilite_pmr: service.accessibilite_pmr || false,
       statut: service.statut || 'actif',
       horaires: service.horaires_ouverture || {},
@@ -177,7 +177,8 @@ const chargerService = async () => {
       severity: 'error',
       summary: 'Erreur de chargement',
       detail:
-        'Impossible de charger le service public:' + error?.response?.data?.error || error.message,
+        'Impossible de charger le service publique:' + error?.response?.data?.error ||
+        error.message,
       life: 5000,
     })
   } finally {
@@ -262,7 +263,7 @@ const modifierService = async () => {
     toast.add({
       severity: 'success',
       summary: 'Service modifié',
-      detail: 'Le service public a été modifié avec succès',
+      detail: 'Le service publique a été modifié avec succès',
       life: 4000,
     })
 
