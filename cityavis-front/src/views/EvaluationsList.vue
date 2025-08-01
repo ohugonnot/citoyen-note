@@ -212,7 +212,7 @@
         <div>
           <p class="mb-1">
             Êtes-vous sûr de vouloir supprimer l'évaluation de
-            <strong>{{ deleteModal.item?.user.nom || 'cet utilisateur' }}</strong> ?
+            <strong>{{ deleteModal.item?.user?.nom || 'cet utilisateur' }}</strong> ?
           </p>
           <p class="text-muted mb-0 small">Cette action est irréversible.</p>
         </div>
