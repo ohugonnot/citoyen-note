@@ -35,6 +35,7 @@ php bin/console app:import-services ./src/Csv/services.csv
 
 echo "Build frontend"
 cd cityavis-front
+source .env
 npm install
 npm run build
 

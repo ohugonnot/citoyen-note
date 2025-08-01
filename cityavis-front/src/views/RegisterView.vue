@@ -170,10 +170,33 @@
         </div>
       </div>
 
+      <div class="mb-3">
+        <div class="form-check">
+          <input
+            id="acceptPolicy"
+            v-model="acceptPolicy"
+            class="form-check-input"
+            type="checkbox"
+            required
+          />
+          <label class="form-check-label small" for="acceptPolicy">
+            J'accepte la
+            <Button
+              label="politique de confidentialité"
+              link
+              size="small"
+              class="p-0 text-decoration-underline"
+              @click="privacyStore.openPolicy('general')"
+            />
+            et comprends l'utilisation de mes données personnelles.
+          </label>
+        </div>
+      </div>
+
       <button
         type="submit"
         class="btn btn-primary w-100"
-        :disabled="auth.isAuthLoading || !isFormValid"
+        :disabled="auth.isAuthLoading || !isFormValid || !acceptPolicy"
       >
         <span v-if="auth.isAuthLoading">
           <span
@@ -205,6 +228,11 @@
 import { ref, computed } from 'vue'
 import axios from '@/axios'
 import { useAuthStore } from '@/stores/authStore'
+
+import { usePrivacyStore } from '@/stores/privacyStore'
+
+const acceptPolicy = ref(false)
+const privacyStore = usePrivacyStore()
 
 const email = ref('')
 const password = ref('')
@@ -302,6 +330,11 @@ const handleRegister = async () => {
 
   if (!passwordsMatch.value) {
     localError.value = 'Les mots de passe ne correspondent pas.'
+    return
+  }
+
+  if (!acceptPolicy.value) {
+    localError.value = 'Veuillez accepter la politique de confidentialité.'
     return
   }
 

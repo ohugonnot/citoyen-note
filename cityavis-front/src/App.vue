@@ -12,8 +12,10 @@
       </div>
     </main>
 
+    <Footer />
+    <PrivacyPolicy />
+    <CookieBanner />
     <NotificationToast ref="notificationRef" />
-
     <LoadingOverlay v-if="isGlobalLoading" />
   </div>
 </template>
@@ -22,10 +24,22 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useNotifications } from '@/composables/useNotifications.js'
+import { usePrivacyStore } from '@/stores/privacyStore'
 
 import Header from '@/components/Header.vue'
 import NotificationToast from '@/components/NotificationToast.vue'
 import LoadingOverlay from '@/components/LoadingOverlay.vue'
+import { useCookieStore } from '@/stores/cookieStore'
+import CookieBanner from '@/components/CookieBanner.vue'
+import Footer from '@/components/Footer.vue'
+import PrivacyPolicy from '@/components/PrivacyPolicy.vue'
+
+const cookieStore = useCookieStore()
+const privacyStore = usePrivacyStore()
+
+onMounted(() => {
+  cookieStore.checkCookieStatus()
+})
 
 const route = useRoute()
 const { setNotificationInstance } = useNotifications()
@@ -59,7 +73,7 @@ onMounted(async () => {
 }
 
 .main-content.with-header {
-  padding-top: 50px;
+  padding-top: 103px;
 }
 
 .page-enter-active,
@@ -80,5 +94,16 @@ onMounted(async () => {
 .container,
 .main-content {
   background-color: white !important;
+}
+
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  flex: 1;
+  padding-bottom: 2rem; /* Espace avant le footer */
 }
 </style>

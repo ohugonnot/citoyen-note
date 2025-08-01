@@ -1162,10 +1162,6 @@ onMounted(async () => {
   transition: var(--transition);
 }
 
-:deep(.p-button:hover) {
-  transform: translateY(-1px);
-}
-
 :deep(.p-dialog) {
   border-radius: var(--border-radius);
   overflow: hidden;

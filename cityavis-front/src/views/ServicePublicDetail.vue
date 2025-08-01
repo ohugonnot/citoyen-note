@@ -39,7 +39,7 @@
     <!-- Contenu principal -->
     <div v-else>
       <!-- En-tête minimaliste -->
-      <div class="bg-light border-bottom pb-2">
+      <div class="bg-light border-bottom py-4">
         <div class="container">
           <!-- Breadcrumb -->
           <nav aria-label="breadcrumb" class="mb-2">

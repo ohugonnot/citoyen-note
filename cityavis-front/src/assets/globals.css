@@ -54,7 +54,9 @@ body {
   padding-top: 80px;
 }
 
-.btn-primary {
+.btn-primary,
+.btn-primary:disabled,
+.btn-primary[disabled] {
   background-color: var(--color-primary);
   border-color: var(--color-primary);
   transition: var(--transition);
@@ -63,7 +65,6 @@ body {
 .btn-primary:hover {
   background-color: var(--color-primary-light);
   border-color: var(--color-primary-light);
-  transform: translateY(-1px);
 }
 
 .btn-secondary {
@@ -74,7 +75,6 @@ body {
 .btn-secondary:hover {
   background-color: #c50011;
   border-color: #c50011;
-  transform: translateY(-1px);
 }
 
 .btn-outline-primary {
@@ -335,4 +335,59 @@ body,
 :root {
   --bs-body-bg: white !important;
   --bs-body-color: #212529 !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Améliorer l'apparence des liens dans les footers */
+.footer-container a {
+  transition: all 0.2s ease;
+}
+
+.footer-container a:hover {
+  text-decoration: none;
+}
+
+/* Responsive pour les badges */
+@media (max-width: 576px) {
+  .p-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+:root {
+  --p-button-link-color: #000091;
+}
+
+.p-button.p-button-link {
+  color: #000091 !important;
+}
+
+.p-button.p-button-primary:hover {
+  background-color: var(--color-primary-light) !important;
+  border-color: var(--color-primary) !important;
+  color: #ffffff !important;
+}
+
+:root {
+  /* Override PrimeVue primary color variables */
+  --p-button-primary-background: #000091 !important;
+  --p-button-primary-border-color: #000091 !important;
+  --p-button-primary-text-color: #ffffff;
+
+  --p-button-primary-hover-background: #3737b6 !important;
+  --p-button-primary-hover-border-color: #1a1aa0 !important;
+
+  --p-button-hover-background: #00006f !important;
+  --p-button-hover-border-color: #00006f !important;
+  --p-button-hover-text-color: #ffffff;
+
+  /* Optionally override focus/active states */
+  --p-button-focus-ring-color: rgba(0, 0, 145, 0.4);
 }

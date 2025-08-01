@@ -7,8 +7,6 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap-icons/font/bootstrap-icons.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 
-import './assets/globals.css'
-
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -53,6 +51,8 @@ import InputIcon from 'primevue/inputicon'
 import Textarea from 'primevue/textarea'
 import Tooltip from 'primevue/tooltip'
 import AutoComplete from 'primevue/autocomplete'
+
+import './assets/globals.css'
 
 // Enregistrement automatique des composants
 const components = {
