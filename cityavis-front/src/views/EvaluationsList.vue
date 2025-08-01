@@ -112,7 +112,7 @@
         <template #body="{ data }">
           <div>
             <div class="fw-bold">
-              {{ data.est_anonyme ? 'Anonyme' : data.user?.pseudo }}
+              {{ data.pseudo }}
             </div>
             <small v-if="!data.est_anonyme" class="text-muted">
               {{ data.user?.email }}
@@ -330,6 +330,22 @@
             </template>
           </AutoComplete>
           <small v-if="errors.user_id" class="text-danger">{{ errors.user_id }}</small>
+        </div>
+        <div v-else class="mb-3">
+          <label class="form-label">Pseudo anonyme</label>
+          <InputText
+            v-model="evaluationForm.pseudo_anonyme"
+            placeholder="Ex: Client satisfait"
+            class="w-100"
+            :class="{ 'p-invalid': errors.pseudo_anonyme }"
+            :disabled="evaluationModal.loading"
+            maxlength="50"
+            fluid
+          />
+          <small class="form-text text-muted">Laissez vide pour "Utilisateur anonyme"</small>
+          <small v-if="errors.pseudo_anonyme" class="text-danger">{{
+            errors.pseudo_anonyme
+          }}</small>
         </div>
 
         <!-- Note -->
@@ -620,6 +636,7 @@ const defaultForm = {
   commentaire: '',
   est_verifie: false,
   est_anonyme: false,
+  pseudo: null,
 }
 
 const evaluationForm = ref({ ...defaultForm })
@@ -649,6 +666,7 @@ const openEditModal = async (evaluation) => {
     commentaire: evaluation.commentaire || '',
     est_verifie: evaluation.est_verifie || false,
     est_anonyme: evaluation.est_anonyme || false,
+    pseudo_anonyme: evaluation.pseudo || null,
   }
 
   if (evaluation.user) {

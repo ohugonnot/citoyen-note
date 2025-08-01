@@ -71,10 +71,6 @@ export const useCategorieStore = defineStore('categorie', () => {
     try {
       const newCategorie = await createCategorieService(categorieData)
       categories.value.unshift(newCategorie)
-
-      // Plus besoin de gérer categoriesActives manuellement
-      // Le computed se met à jour automatiquement
-
       return newCategorie
     } catch (err) {
       error.value = 'Erreur lors de la création'
@@ -91,14 +87,10 @@ export const useCategorieStore = defineStore('categorie', () => {
     try {
       const updatedCategorie = await updateCategorieService(id, categorieData)
 
-      // Mettre à jour dans le state principal uniquement
       const index = categories.value.findIndex((cat) => cat.id === id)
       if (index !== -1) {
         categories.value[index] = updatedCategorie
       }
-
-      // categoriesActives se met à jour automatiquement via le computed
-      // Plus besoin de gérer manuellement les ajouts/suppressions
 
       return updatedCategorie
     } catch (err) {
@@ -115,11 +107,7 @@ export const useCategorieStore = defineStore('categorie', () => {
 
     try {
       await deleteCategorieService(id)
-
-      // Supprimer du state principal uniquement
       categories.value = categories.value.filter((cat) => cat.id !== id)
-
-      // categoriesActives se met à jour automatiquement via le computed
 
       return true
     } catch (err) {
@@ -130,15 +118,11 @@ export const useCategorieStore = defineStore('categorie', () => {
     }
   }
 
-  // Méthode utilitaire pour forcer le rechargement
   const refreshCategories = async () => {
     return await fetchCategories({ force: true })
   }
 
-  // Méthode pour charger seulement les catégories actives (si besoin d'optimisation)
   const fetchCategoriesActives = async (force = false) => {
-    // On charge toutes les catégories et on filtre côté client
-    // Alternative : avoir un endpoint spécifique pour les actives
     await fetchCategories({ force })
     return categoriesActives.value
   }

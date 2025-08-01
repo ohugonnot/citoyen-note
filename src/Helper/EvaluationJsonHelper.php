@@ -18,9 +18,9 @@ class EvaluationJsonHelper
             'est_verifie' => $evaluation->isEstVerifie(),
             'nombre_utile' => $evaluation->getNombreUtile(),
             'nombre_signalement' => $evaluation->getNombreSignalement(),
-            'pseudo' => $evaluation->getPseudoAffichage(),
             'createdAt' => $evaluation->getCreatedAt()?->format('Y-m-d H:i:s'),
             'updatedAt' => $evaluation->getUpdatedAt()?->format('Y-m-d H:i:s'),
+            'pseudo' => $evaluation->getPseudo(),
             'service' => [
                 'id' => $evaluation->getServicePublic()->getId(),
                 'nom' => $evaluation->getServicePublic()->getNom(),

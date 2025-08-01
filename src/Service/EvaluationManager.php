@@ -34,6 +34,7 @@ class EvaluationManager
             ->setCommentaire($dto->commentaire)
             ->setCriteresSpecifiques($dto->criteres_specifiques)
             ->setEstAnonyme($dto->est_anonyme)
+            ->setPseudo($dto->pseudo_anonyme)
             ->setEstVerifie($dto->est_verifie)
             ->setStatut(StatutEvaluation::ACTIVE)
             ->setServicePublic($service);
@@ -42,6 +43,8 @@ class EvaluationManager
             $user = $this->em->getRepository(User::class)->findOneBy(['id' => $dto->user_id]);
             if ($user) {
                 $evaluation->setUser($user);
+            } else {
+                $evaluation->setEstAnonyme(true);
             }
         }
 
@@ -58,6 +61,7 @@ class EvaluationManager
             ->setCommentaire($dto->commentaire)
             ->setCriteresSpecifiques($dto->criteres_specifiques)
             ->setEstAnonyme($dto->est_anonyme)
+            ->setPseudo($dto->pseudo_anonyme)
             ->setEstVerifie($dto->est_verifie);
 
         if (isset($dto->service_id)) {
@@ -76,6 +80,7 @@ class EvaluationManager
                 }
                 $evaluation->setUser($user);
             } else {
+                $evaluation->setEstAnonyme(true);
                 $evaluation->setUser(null);
             }
         }

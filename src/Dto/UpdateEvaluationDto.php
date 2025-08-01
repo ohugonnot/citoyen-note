@@ -19,6 +19,8 @@ class UpdateEvaluationDto
 
     public bool $est_verifie = false;
 
+    public ?string $pseudo_anonyme = null;
+
     #[Assert\NotBlank]
     #[Assert\Uuid]
     public string $service_id;
@@ -35,6 +37,7 @@ class UpdateEvaluationDto
         $this->est_verifie = $data['est_verifie'] ?? false;
         $this->service_id = $data['service_id'] ?? '';
         $this->user_id = $data['user_id'] ?? null;
+        $this->pseudo_anonyme = $data['pseudo_anonyme'] ?? null;
     }
 
     public function toArray(): array
@@ -47,6 +50,7 @@ class UpdateEvaluationDto
             'est_verifie' => $this->est_verifie,
             'service_id' => $this->service_id,
             'user_id' => $this->user_id,
+            'pseudo_anonyme' => $this->pseudo_anonyme
         ];
     }
 }

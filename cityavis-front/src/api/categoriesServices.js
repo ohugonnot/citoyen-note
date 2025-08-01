@@ -1,14 +1,15 @@
 import apiClient from '@/axios'
 
 const BASE_PATH = '/api/admin/categories'
+const BASE_PUBLIC_PATH = '/api/public/categories'
 
 export const fetchCategoriesServices = async (params = {}) => {
-  const response = await apiClient.get(BASE_PATH, { params })
+  const response = await apiClient.get(BASE_PUBLIC_PATH, { params })
   return response.data
 }
 
 export const fetchCategorieServiceById = async (id) => {
-  const response = await apiClient.get(`${BASE_PATH}/${id}`)
+  const response = await apiClient.get(`${BASE_PUBLIC_PATH}/${id}`)
   return response.data
 }
 

@@ -1,3 +1,4 @@
+// src/stores/authStore.js - Version finale avec support public
 import { defineStore } from 'pinia'
 import { nextTick } from 'vue'
 import apiClient, { refreshClient } from '@/axios'
@@ -7,6 +8,7 @@ const STORAGE_KEYS = {
   ACCESS_TOKEN: 'access_token',
   REFRESH_TOKEN: 'refresh_token',
   USER_DATA: 'user_data',
+  PUBLIC_USER: 'public_user_data',
 }
 
 const secureStorage = {
@@ -57,6 +59,8 @@ export const useAuthStore = defineStore('auth', {
     refreshToken: secureStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
     isLoading: false,
     loginError: null,
+
+    publicUser: secureStorage.getObjectItem(STORAGE_KEYS.PUBLIC_USER),
   }),
 
   getters: {
@@ -64,6 +68,20 @@ export const useAuthStore = defineStore('auth', {
     currentUser: (state) => (state.user ? { ...state.user } : null),
     isAuthLoading: (state) => state.isLoading,
     lastLoginError: (state) => state.loginError,
+
+    isPublicAuthenticated: (state) => !!state.publicUser,
+    currentPublicUser: (state) => (state.publicUser ? { ...state.publicUser } : null),
+
+    currentMode: (state) => {
+      if (state.accessToken && state.user) return 'admin'
+      if (state.publicUser) return 'public'
+      return 'anonymous'
+    },
+    displayName: (state) => {
+      if (state.user) return state.user.name || state.user.nom
+      if (state.publicUser) return state.publicUser.name || state.publicUser.nom
+      return 'Anonyme'
+    },
   },
 
   actions: {
@@ -98,9 +116,6 @@ export const useAuthStore = defineStore('auth', {
         return data
       } catch (error) {
         console.error('[fetchUser] Erreur complète:', error)
-
-        // Laisser l'intercepteur axios gérer les 401
-        // Ne plus faire de logout automatique ici pour éviter les conflits
         throw error
       } finally {
         this.isLoading = false
@@ -113,7 +128,6 @@ export const useAuthStore = defineStore('auth', {
         return false
       }
       try {
-        // Cast de la date si string (protection pour PHP)
         if (updatedData.dateNaissance && typeof updatedData.dateNaissance !== 'string') {
           updatedData.dateNaissance = updatedData.dateNaissance.toISOString().split('T')[0]
         }
@@ -132,10 +146,10 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         if (this.accessToken) {
-          await apiClient.post('/api/logout').catch(() => {})
+          await apiClient.post('/api/logout')
         }
       } catch (error) {
-        console.warn('[logout] Échec appel serveur :', error)
+        console.warn('[logout] Erreur logout serveur:', error.response?.status)
       }
 
       this.clearAuthData()
@@ -150,7 +164,6 @@ export const useAuthStore = defineStore('auth', {
         }
       } catch (navigationError) {
         console.error('[logout] Erreur de navigation:', navigationError)
-        // Fallback sécurisé
         setTimeout(() => {
           window.location.href = redirectPath
         }, 100)
@@ -169,7 +182,6 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         console.log('[refreshToken] Tentative de rafraîchissement...')
-        // Utiliser refreshClient pour éviter la boucle infinie
         const { data } = await refreshClient.post('/api/token/refresh', {
           refresh_token: this.refreshToken,
         })
@@ -191,7 +203,6 @@ export const useAuthStore = defineStore('auth', {
           error.response?.data,
         )
 
-        // Si c'est une erreur 401, le refresh token est invalide
         if (error.response?.status === 401) {
           console.warn('[refreshToken] Refresh token invalide/expiré')
           this.clearAuthData()
@@ -209,7 +220,6 @@ export const useAuthStore = defineStore('auth', {
         return true
       } catch (error) {
         console.error('[initializeAuth] Erreur', error)
-        // Ne plus faire de logout automatique ici non plus
         return false
       }
     },
@@ -241,6 +251,18 @@ export const useAuthStore = defineStore('auth', {
       secureStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, token)
     },
 
+    setPublicUser(user) {
+      this.publicUser = user ? { ...user } : null
+      secureStorage.setObjectItem(STORAGE_KEYS.PUBLIC_USER, this.publicUser)
+    },
+
+    updatePublicUser(userData) {
+      if (userData) {
+        this.publicUser = { ...this.publicUser, ...userData }
+        secureStorage.setObjectItem(STORAGE_KEYS.PUBLIC_USER, this.publicUser)
+      }
+    },
+
     clearAuthData() {
       this.user = null
       this.accessToken = null
@@ -253,9 +275,18 @@ export const useAuthStore = defineStore('auth', {
       secureStorage.removeItem(STORAGE_KEYS.USER_DATA)
     },
 
+    clearPublicData() {
+      this.publicUser = null
+      secureStorage.removeItem(STORAGE_KEYS.PUBLIC_USER)
+    },
+
+    clearAllData() {
+      this.clearAuthData()
+      this.clearPublicData()
+    },
+
     handleAuthError(message, error) {
       console.error(`[Auth] ${message}:`, error, error?.response?.data)
-
       const responseData = error?.response?.data
 
       if (typeof responseData === 'string') {

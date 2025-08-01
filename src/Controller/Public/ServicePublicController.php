@@ -1,28 +1,30 @@
 <?php
-// src/Controller/Public/ServicePublicController.php
 
 namespace App\Controller\Public;
 
 use App\Entity\CategorieService;
+use App\Entity\Evaluation;
 use App\Entity\ServicePublic;
 use App\Enum\StatutService;
 use App\Enum\StatutEvaluation;
 use App\Helper\CategorieServiceJsonHelper;
-use App\Helper\ServicePublicJsonHelper;
 use App\Helper\EvaluationJsonHelper;
+use App\Helper\ServicePublicJsonHelper;
 use App\Repository\CategorieServiceRepository;
 use App\Repository\EvaluationRepository;
-use App\Service\EvaluationManager;
 use App\Repository\ServicePublicRepository;
+use App\Service\EvaluationManager;
+use App\Service\PublicAuthService;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\QueryBuilder;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Uid\Uuid;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-#[Route('/public/services', name: 'public_service_')]
+#[Route('/api/public/services', name: 'public_service_')]
 class ServicePublicController extends AbstractController
 {
     public function __construct(
@@ -31,90 +33,81 @@ class ServicePublicController extends AbstractController
         private CategorieServiceRepository $categorieRepository,
         private EvaluationRepository $evaluationRepository,
         private EntityManagerInterface $em,
+        private ValidatorInterface $validator,
+        private PublicAuthService $publicAuthService
     ) {}
 
     #[Route('', name: 'api_services_publics_list', methods: ['GET'])]
     public function list(Request $request): JsonResponse
     {
-        // Récupération des paramètres
         $search = $request->query->get('search', '');
         $villeData = $request->query->all('ville', []);
         $categorie = $request->query->get('categorie');
+        $uuid = $categorie ? Uuid::fromString($categorie) : null;
         $page = max(1, (int) $request->query->get('page', 1));
         $limit = min(50, max(1, (int) $request->query->get('limit', 12)));
-        
-        $ville = '';
-        $codePostal = '';
-        if (!empty($villeData)) {
-            $ville = $villeData['nom'] ?? '';
-            $codePostal = $villeData['codePostal'] ?? '';
-        }
-        
+
+        $ville = $villeData['nom'] ?? '';
+        $codePostal = $villeData['codePostal'] ?? '';
+
         try {
-            // Requête pour compter le total
             $countQb = $this->serviceRepository->createQueryBuilder('s')
                 ->select('COUNT(DISTINCT s.id)')
                 ->leftJoin('s.categorie', 'c')
                 ->where('s.statut = :statut')
                 ->setParameter('statut', StatutService::ACTIF);
 
-            // Application des filtres avec code postal
-            $this->applyFilters($countQb, $search, $ville, $categorie, $codePostal);
+            $this->applyFilters($countQb, $search, $ville, $uuid, $codePostal);
             $total = (int) $countQb->getQuery()->getSingleScalarResult();
 
-            // Requête pour récupérer les données
             $qb = $this->serviceRepository->createQueryBuilder('s')
                 ->select('s, c')
                 ->leftJoin('s.categorie', 'c')
                 ->where('s.statut = :statut')
                 ->setParameter('statut', StatutService::ACTIF)
-                ->orderBy('s.nom', 'ASC');
+                ->orderBy('s.nom', 'ASC')
+                ->setFirstResult(($page - 1) * $limit)
+                ->setMaxResults($limit);
 
-            // Application des mêmes filtres
-            $this->applyFilters($qb, $search, $ville, $categorie, $codePostal);
-            
-            $qb->setFirstResult(($page - 1) * $limit)
-            ->setMaxResults($limit);
+            $this->applyFilters($qb, $search, $ville, $uuid, $codePostal);
 
             $services = $qb->getQuery()->getResult();
 
-            // Transformation des données avec les stats d'évaluation
-            $servicesData = array_map(function(ServicePublic $service) {
+            $servicesData = array_map(function (ServicePublic $service) {
                 $data = ServicePublicJsonHelper::build($service, 'public');
-                
-                // Clean les données si nécessaire
+
                 foreach ($data as $key => $value) {
                     if (is_string($value)) {
                         $data[$key] = $this->cleanString($value);
                     }
                 }
-                
-                // Calcul des stats manuellement
-                $evaluations = $service->getEvaluations()->filter(function($evaluation) {
-                    return $evaluation->getStatut() === StatutEvaluation::ACTIVE;
-                });
-                
-                $noteMoyenne = 0;
+
+                $evaluations = $service->getEvaluations()->filter(
+                    fn($evaluation) => $evaluation->getStatut() === StatutEvaluation::ACTIVE
+                );
+
+                $totalNotes = array_reduce(
+                    $evaluations->toArray(),
+                    fn($carry, $e) => $carry + $e->getNote(),
+                    0
+                );
+
                 $nombreEvaluations = $evaluations->count();
-                
-                if ($nombreEvaluations > 0) {
-                    $totalNotes = 0;
-                    foreach ($evaluations as $evaluation) {
-                        $totalNotes += $evaluation->getNote();
-                    }
-                    $noteMoyenne = round($totalNotes / $nombreEvaluations, 1);
-                }
+                $noteMoyenne = $nombreEvaluations > 0 ? round($totalNotes / $nombreEvaluations, 1) : 0;
 
                 $data['note_moyenne'] = $noteMoyenne;
                 $data['nombre_evaluations'] = $nombreEvaluations;
-                
+
                 return $data;
             }, $services);
 
             return $this->json([
                 'success' => true,
                 'data' => $servicesData,
-                'categories' => array_map(fn(CategorieService $categorie) => CategorieServiceJsonHelper::build($categorie), $this->categorieRepository->findAll()),
+                'categories' => array_map(
+                    fn(CategorieService $c) => CategorieServiceJsonHelper::build($c),
+                    $this->categorieRepository->findAll()
+                ),
                 'pagination' => [
                     'page' => $page,
                     'limit' => $limit,
@@ -131,8 +124,7 @@ class ServicePublicController extends AbstractController
             ], 200, [], [
                 'json_encode_options' => JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
             ]);
-
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return $this->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération des services',
@@ -143,34 +135,30 @@ class ServicePublicController extends AbstractController
         }
     }
 
-    // 🎯 Méthode applyFilters avec code postal
-    private function applyFilters($qb, string $search, string $ville, ?string $categorie, string $codePostal = ''): void
+    private function applyFilters($qb, string $search, string $ville, ?Uuid $categorie, string $codePostal = ''): void
     {
-        // Filtre de recherche
-        if (!empty($search)) {
-            $qb->andWhere('s.nom LIKE :search OR s.description LIKE :search')
-            ->setParameter('search', '%' . $search . '%');
+        if ($search) {
+            $qb->andWhere('LOWER(s.nom) LIKE :search OR LOWER(s.description) LIKE :search')
+            ->setParameter('search', '%' . mb_strtolower($search) . '%');
         }
 
-        // 🎯 Filtre ville avec code postal et code INSEE
-        if (!empty($ville)) {
-            $conditions = ['s.ville LIKE :ville'];
-            $qb->setParameter('ville', '%' . $ville . '%');
-            
-            if (!empty($codePostal)) {
+        if ($ville) {
+            $conditions = ['LOWER(s.ville) LIKE :ville'];
+            $qb->setParameter('ville', '%' . mb_strtolower($ville) . '%');
+
+            if ($codePostal) {
                 $conditions[] = 's.codePostal = :codePostal';
                 $conditions[] = 's.codePostal LIKE :codePostalPattern';
-                $qb->setParameter('codePostal', $codePostal)
-                ->setParameter('codePostalPattern', $codePostal . '%');
+                $qb->setParameter('codePostal', $codePostal);
+                $qb->setParameter('codePostalPattern', $codePostal . '%');
             }
-            
+
             $qb->andWhere('(' . implode(' OR ', $conditions) . ')');
         }
 
-        // Filtre catégorie
-        if (!empty($categorie)) {
-            $qb->andWhere('c.nom = :categorie')
-            ->setParameter('categorie', $categorie);
+        if ($categorie) {
+            $qb->andWhere('c.id = :categorie')
+            ->setParameter('categorie',$categorie->toBinary());
         }
     }
 
@@ -179,14 +167,62 @@ class ServicePublicController extends AbstractController
         if ($str === null) {
             return null;
         }
-        
-        // Convertit en UTF-8 propre
+
         $clean = mb_convert_encoding($str, 'UTF-8', 'UTF-8');
-        
-        // Supprime les caractères de contrôle mais garde les accents
         $clean = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $clean);
-        
+
         return trim($clean) ?: null;
+    }
+
+    #[Route('/{id}/evaluations', name: 'public_service_evaluations_create', methods: ['POST'])]
+    public function createEvaluation(Uuid $id, Request $request): JsonResponse
+    {
+        $service = $this->serviceRepository->find($id);
+
+        if (!$service) {
+            return $this->json(['error' => 'Service non trouvé'], 404);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        if (!isset($data['note']) || $data['note'] < 1 || $data['note'] > 5) {
+            return $this->json(['error' => 'Note invalide (1-5)'], 400);
+        }
+
+        $user = $this->publicAuthService->getCurrentUser($request);
+        $evaluation = new Evaluation();
+
+        if ($user) {
+            $evaluation->setUser($user);
+        } else {
+            $nomAnonyme = trim($data['nom_anonyme'] ?? null);
+             dump($nomAnonyme);
+            $evaluation->setPseudo($nomAnonyme);
+            $evaluation->setEstAnonyme(true);
+            $evaluation->setUser(null);
+        }
+
+        $evaluation->setServicePublic($service);
+        $evaluation->setNote($data['note']);
+        $evaluation->setCommentaire($data['commentaire'] ?? '');
+
+        $errors = $this->validator->validate($evaluation);
+        if (count($errors) > 0) {
+            return $this->json(['error' => 'Données invalides'], 400);
+        }
+
+        $this->em->persist($evaluation);
+        $this->em->flush();
+
+        return $this->json([
+            'message' => 'Évaluation créée avec succès',
+            'evaluation' => [
+                'id' => $evaluation->getId(),
+                'note' => $evaluation->getNote(),
+                'commentaire' => $evaluation->getCommentaire(),
+                'date' => $evaluation->getCreatedAt()->format('Y-m-d H:i:s'),
+            ]
+        ], 201);
     }
 
     #[Route('/{slug}', name: 'show', methods: ['GET'])]
@@ -194,17 +230,16 @@ class ServicePublicController extends AbstractController
     {
         $service = $this->serviceRepository->findOneBy([
             'slug' => $slug,
-            'statut' => StatutService::ACTIF
+            'statut' => StatutService::ACTIF,
         ]);
 
         if (!$service) {
             throw new NotFoundHttpException('Service non trouvé');
         }
 
-        // Stats publiques seulement
         $evaluationStats = $this->evaluationManager->getPublicServiceStats($service);
 
-        $response = [
+        $response = $this->json([
             'service' => ServicePublicJsonHelper::build($service, 'public'),
             'evaluations' => [
                 'moyenne' => $evaluationStats['moyenne'],
@@ -215,12 +250,10 @@ class ServicePublicController extends AbstractController
                     $evaluationStats['evaluations']
                 )
             ]
-        ];
+        ]);
 
-        // Headers pour le SEO et cache
-        $response = $this->json($response);
-        $response->headers->set('Cache-Control', 'public, max-age=300'); // 5 min de cache
-        
+        $response->headers->set('Cache-Control', 'public, max-age=300');
+
         return $response;
     }
 }

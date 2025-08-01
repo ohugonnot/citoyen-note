@@ -116,7 +116,7 @@ const acknowledgeCookiesAndClose = () => {
   left: 20px;
   right: 20px;
   z-index: 1050;
-  max-width: 800px;
+  max-width: 1140px;
   margin: 0 auto;
 }
 

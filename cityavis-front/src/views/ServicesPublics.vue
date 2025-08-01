@@ -3,6 +3,7 @@ import { ref, onMounted, nextTick, computed, watch } from 'vue'
 import StarRating from '@/components/StarRating.vue'
 import { useRouter } from 'vue-router'
 import { useServicePublicStore } from '@/stores/servicePublicStore'
+import { useCategorieStore } from '@/stores/categorieServiceStore'
 import { storeToRefs } from 'pinia'
 import { debounce } from 'lodash'
 import L from 'leaflet'
@@ -10,14 +11,26 @@ import L from 'leaflet'
 // Composables
 const router = useRouter()
 const serviceStore = useServicePublicStore()
+const categorieStore = useCategorieStore()
 
 // Store refs
 const { servicesPublic, isLoading } = storeToRefs(serviceStore)
+const { categoriesOptions, isLoading: categoriesLoading } = storeToRefs(categorieStore) // 🆕
 
 // Computed pour un accès plus facile
-const services = computed(() => servicesPublic.value?.data || [])
-const pagination = computed(() => servicesPublic.value?.pagination || {})
-const categories = computed(() => servicesPublic.value?.categories || [])
+const services = computed(() => {
+  if (Array.isArray(servicesPublic.value)) {
+    return servicesPublic.value
+  }
+  return servicesPublic.value?.data || []
+})
+
+const pagination = computed(() => {
+  if (Array.isArray(servicesPublic.value)) {
+    return {}
+  }
+  return servicesPublic.value?.pagination || {}
+})
 
 // Filters
 const searchTerm = ref('')
@@ -28,26 +41,15 @@ const getStoredViewMode = () => {
   try {
     return localStorage.getItem('viewMode') || 'grid'
   } catch (error) {
-    return 'grid' // fallback si localStorage pas dispo
+    return 'grid'
   }
 }
+
 // UI State
 const viewMode = ref(getStoredViewMode())
 const map = ref(null)
 const mapContainer = ref(null)
 const markers = ref([])
-
-// Options
-const categorieOptions = computed(() => {
-  const defaultOption = { label: 'Toutes les catégories', value: null }
-
-  const categoriesFromApi = categories.value.map((cat) => ({
-    label: cat.nom,
-    value: cat.nom,
-  }))
-
-  return [defaultOption, ...categoriesFromApi]
-})
 
 // Methods
 const applyFilters = async () => {
@@ -59,7 +61,6 @@ const applyFilters = async () => {
       page: 1,
     })
 
-    // ✅ Toujours mettre à jour la carte après une recherche
     if (viewMode.value === 'map') {
       await nextTick()
       updateMapMarkers()
@@ -80,7 +81,7 @@ watch(
   { immediate: false },
 )
 
-// Debounce la recherche avec Lodash
+// Debounce la recherche
 const debouncedSearch = debounce(applyFilters, 300)
 
 const onSearchChange = () => {
@@ -146,7 +147,6 @@ const initMap = () => {
 const updateMapMarkers = () => {
   if (!map.value) return
 
-  // Supprimer les anciens markers
   markers.value.forEach((marker) => map.value.removeLayer(marker))
   markers.value = []
 
@@ -155,10 +155,8 @@ const updateMapMarkers = () => {
     return
   }
 
-  // Ajouter les nouveaux markers
   services.value.forEach((service) => {
     if (service?.coordinates?.latitude && service?.coordinates?.longitude) {
-      // 🌟 CRÉER L'ICÔNE PERSONNALISÉE
       const customIcon = L.divIcon({
         html: createCustomMarkerHTML(service),
         className: 'custom-marker',
@@ -167,7 +165,6 @@ const updateMapMarkers = () => {
         popupAnchor: [-7, -25],
       })
 
-      // Utiliser l'icône personnalisée au lieu du marker par défaut
       const marker = L.marker([service?.coordinates?.latitude, service?.coordinates?.longitude], {
         icon: customIcon,
       }).bindPopup(`
@@ -191,17 +188,14 @@ const updateMapMarkers = () => {
     }
   })
 
-  // Ajuster la vue pour inclure tous les markers
   if (markers.value.length > 0) {
     const group = new L.featureGroup(markers.value)
     map.value.fitBounds(group.getBounds().pad(0.1))
   } else {
-    // ✅ Si aucun marker avec coordonnées, revenir à la vue France
     map.value.setView([46.603354, 1.888334], 6)
   }
 }
 
-// 🎨 FONCTION POUR CRÉER L'HTML DU MARKER
 const createCustomMarkerHTML = (service) => {
   const iconeCategorie = service.categorie?.icone || 'bi-building'
   const couleurCategorie = service.categorie?.couleur || '#0d6efd'
@@ -278,11 +272,10 @@ watch(
   { immediate: true },
 )
 
-// 🎯 Recherche des villes (ton code existant)
+// Recherche des villes
 const villeSuggestions = ref([])
 const villeLoading = ref(false)
 const selectedVille = ref(null)
-
 const cityCache = new Map()
 const CACHE_DURATION = 30 * 60 * 1000
 
@@ -290,7 +283,6 @@ const searchCities = async (event) => {
   const query = event.query.toLowerCase()
   const cacheKey = query
 
-  // 🎯 Vérifier le cache
   const cached = cityCache.get(cacheKey)
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
     villeSuggestions.value = cached.data
@@ -320,7 +312,6 @@ const searchCities = async (event) => {
       displayName: `${city.nom} (${city.departement?.nom || ''}) - ${city.codesPostaux?.[0] || ''}`,
     }))
 
-    // 🎯 Mettre en cache
     cityCache.set(cacheKey, {
       data: formattedCities,
       timestamp: Date.now(),
@@ -351,10 +342,15 @@ const onVilleSelect = (event) => {
   onFiltersChange()
 }
 
-// Lifecycle
+// Lifecycle - 🔄 Chargement des catégories ajouté
 onMounted(async () => {
   try {
-    await serviceStore.fetchServicesPublic()
+    // 🆕 Charger les catégories en parallèle
+    await Promise.all([
+      serviceStore.fetchServicesPublic(),
+      categorieStore.fetchCategoriesActives(), // Charger seulement les actives
+    ])
+
     hasInitiallyLoaded.value = true
 
     await nextTick()
@@ -465,7 +461,8 @@ onMounted(async () => {
               <div class="col-md-4">
                 <Select
                   v-model="categorieFilter"
-                  :options="categorieOptions"
+                  :loading="categoriesLoading"
+                  :options="categoriesOptions"
                   option-label="label"
                   option-value="value"
                   placeholder="Choisir une catégorie"

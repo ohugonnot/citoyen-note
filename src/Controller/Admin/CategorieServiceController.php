@@ -22,48 +22,6 @@ class CategorieServiceController extends AbstractController
     ) {
     }
 
-    #[Route('', name: 'list', methods: ['GET'])]
-    public function list(): JsonResponse
-    {
-        $categories = $this->categorieManager->findAllActive();
-        
-        $data = array_map(
-            fn(CategorieService $categorie) => CategorieServiceJsonHelper::build($categorie),
-            $categories
-        );
-
-        return $this->json([
-            'success' => true,
-            'data' => $data,
-            'total' => count($data)
-        ]);
-    }
-
-    #[Route('/{id}', name: 'show', methods: ['GET'])]
-    public function show(string $id): JsonResponse
-    {
-        if (!Uuid::isValid($id)) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Identifiant invalide'
-            ], Response::HTTP_BAD_REQUEST);
-        }
-
-        $categorie = $this->categorieManager->findActiveById($id);
-
-        if (!$categorie) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Catégorie non trouvée'
-            ], Response::HTTP_NOT_FOUND);
-        }
-
-        return $this->json([
-            'success' => true,
-            'data' => CategorieServiceJsonHelper::build($categorie)
-        ]);
-    }
-
     #[Route('', name: 'create', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {

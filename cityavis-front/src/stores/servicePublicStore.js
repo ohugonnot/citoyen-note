@@ -1,8 +1,8 @@
-'' // src/stores/servicePublicStore.js
+// src/stores/servicePublicStore.js - Version finale complète
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/api/servicesPublics'
-import servicesPublics from '@/api/servicesPublics'
+import { useAuthStore } from '@/stores/authStore' // 🆕 Import ajouté
 
 export const useServicePublicStore = defineStore('servicePublic', () => {
   const DEFAULT_FILTERS = {
@@ -28,27 +28,64 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     hasPrev: false,
   }
 
-  const DEFAULT_RECENT_LIMIT = 10
-
   const services = ref([])
   const servicesPublic = ref([])
   const currentService = ref(null)
+  const evaluations = ref([])
+  const evaluationStats = ref({})
   const stats = ref({})
   const recentServices = ref([])
+
   const isLoading = ref(false)
   const isLoadingStats = ref(false)
+  const isLoadingEvaluations = ref(false)
   const error = ref(null)
 
   const filters = ref({ ...DEFAULT_FILTERS })
   const pagination = ref({ ...DEFAULT_PAGINATION })
 
-  const updateFiltersFromResponse = (data) => {
-    if (data.filters) {
-      filters.value = { ...filters.value, ...data.filters }
+  const servicesCount = computed(() => services.value.length)
+  const servicesActifs = computed(() => services.value.filter((s) => s.statut === 'actif'))
+  const servicesByStatut = computed(() => {
+    const grouped = {}
+    services.value.forEach((service) => {
+      const statut = service.statut || 'inconnu'
+      grouped[statut] = (grouped[statut] || 0) + 1
+    })
+    return grouped
+  })
+
+  const servicesByCategorie = computed(() => {
+    const grouped = {}
+    services.value.forEach((service) => {
+      const cat = service.categorie?.nom || 'Non catégorisé'
+      grouped[cat] = (grouped[cat] || 0) + 1
+    })
+    return grouped
+  })
+
+  const hasFilters = computed(() => {
+    return Object.entries(filters.value).some(([key, value]) => {
+      const defaultValue = DEFAULT_FILTERS[key]
+      return value !== defaultValue && value !== '' && value !== null
+    })
+  })
+
+  const execute = async (action) => {
+    isLoading.value = true
+    error.value = null
+    try {
+      return await action()
+    } catch (err) {
+      error.value = err.message || 'Erreur'
+      throw err
+    } finally {
+      isLoading.value = false
     }
   }
 
-  const updatePaginationFromResponse = (data) => {
+  const updateFromResponse = (data) => {
+    if (data.filters) filters.value = { ...filters.value, ...data.filters }
     if (data.pagination) {
       pagination.value = { ...pagination.value, ...data.pagination }
       filters.value.page = data.pagination.page
@@ -69,93 +106,115 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     services.value = services.value.filter((s) => !ids.includes(s.id))
   }
 
-  const execute = async (action) => {
-    isLoading.value = true
-    error.value = null
+  const fetchServicesPublic = async (params = {}) => {
+    const result = await api.getAllPublic(params)
+    servicesPublic.value = result.data || result
+    return result
+  }
+
+  const fetchServiceBySlug = async (slug) => {
+    return execute(async () => {
+      const service = await api.getOneBySlug(slug)
+      currentService.value = service
+      return service
+    })
+  }
+
+  const submitEvaluation = async (evaluationData) => {
+    return execute(async () => {
+      const authStore = useAuthStore()
+      const payload = {
+        note: evaluationData.note,
+        commentaire: evaluationData.commentaire,
+      }
+
+      if (authStore.isPublicAuthenticated) {
+        payload.nom = authStore.currentPublicUser.nom
+        payload.email = authStore.currentPublicUser.email
+      } else {
+        payload.nom_anonyme = evaluationData.nomAnonyme || 'Utilisateur anonyme'
+        payload.anonyme = true
+      }
+
+      const result = await api.submitEvaluation(evaluationData.serviceId, payload)
+
+      if (currentService.value?.id === evaluationData.serviceId) {
+        await Promise.all([
+          fetchServiceBySlug(currentService.value.slug),
+          fetchEvaluationStats(evaluationData.serviceId),
+        ])
+      }
+
+      return result
+    })
+  }
+
+  const fetchEvaluations = async (serviceId, params = {}) => {
+    isLoadingEvaluations.value = true
     try {
-      return await action()
-    } catch (err) {
-      error.value = err.message || 'Erreur'
-      throw err
+      const result = await api.getEvaluations(serviceId, params)
+      evaluations.value = result.data || result
+      return result
     } finally {
-      isLoading.value = false
+      isLoadingEvaluations.value = false
     }
   }
 
-  const servicesCount = computed(() => services.value.length)
+  const fetchEvaluationStats = async (serviceId) => {
+    try {
+      const result = await api.getEvaluationStats(serviceId)
+      evaluationStats.value = result
+      return result
+    } catch (error) {
+      console.warn('Erreur stats évaluations:', error)
+      return {}
+    }
+  }
 
-  const servicesByStatut = computed(() => {
-    return services.value.reduce((acc, s) => {
-      const statut = s.statut || 'actif'
-      acc[statut] = acc[statut] || []
-      acc[statut].push(s)
-      return acc
-    }, {})
-  })
-
-  const servicesActifs = computed(() => services.value.filter((s) => s.statut === 'actif'))
-
-  const servicesByCategorie = computed(() => {
-    return services.value.reduce((acc, s) => {
-      const c = s.categorie?.nom || 'Autres'
-      acc[c] = acc[c] || []
-      acc[c].push(s)
-      return acc
-    }, {})
-  })
-
-  const hasFilters = computed(() => {
-    return Object.entries(filters.value).some(
-      ([k, v]) => !['page', 'limit'].includes(k) && v != null && v !== '',
-    )
-  })
-
-  const fetchServices = async (params = {}) => {
+  const fetchServices = async (params = {}, force = false) => {
     return execute(async () => {
-      const merged = {
+      const queryParams = {
         ...filters.value,
         ...params,
-        page: params.page ?? filters.value.page,
-        limit: params.limit ?? filters.value.limit,
       }
-      const data = await api.getAll(merged)
-      services.value = data.data || data
-      updateFiltersFromResponse(data)
-      updatePaginationFromResponse(data)
-      return data
+
+      if (force) queryParams._t = Date.now()
+
+      const result = await api.getAll(queryParams)
+
+      services.value = result.data || result.services || result
+      updateFromResponse(result)
+
+      return result
     })
   }
 
   const fetchServiceById = async (id, force = false) => {
-    if (!force) {
-      const found = services.value.find((s) => s.id === id)
-      if (found) {
-        currentService.value = found
-        return found
+    return execute(async () => {
+      if (!force && currentService.value?.id === id) {
+        return currentService.value
       }
-    }
-    return execute(async () => {
-      const s = await api.getOne(id)
-      currentService.value = s
-      updateInList(id, s)
-      return s
+      const service = await api.getOne(id)
+      currentService.value = service
+      return service
     })
   }
 
-  const createService = async (data) => {
+  const createService = async (payload) => {
     return execute(async () => {
-      const created = await api.create(data)
-      services.value.unshift(created)
-      pagination.value.total += 1
-      return created
+      const service = await api.create(payload)
+      services.value.unshift(service)
+      return service
     })
   }
 
-  const updateService = async (id, data) => {
+  const updateService = async (id, payload) => {
     return execute(async () => {
-      const updated = await api.update(id, data)
+      const updated = await api.update(id, payload)
       updateInList(id, updated)
-      if (currentService.value?.id === id) currentService.value = updated
+      if (currentService.value?.id === id) {
+        currentService.value = updated
+      }
       return updated
     })
   }
@@ -164,8 +223,10 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     return execute(async () => {
       await api.delete(id)
       removeFromList(id)
-      if (currentService.value?.id === id) currentService.value = null
-      pagination.value.total -= 1
+      if (currentService.value?.id === id) {
+        currentService.value = null
+      }
+      return true
     })
   }
 
@@ -173,34 +234,33 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     return execute(async () => {
       await api.bulkDelete(ids)
       removeFromListBulk(ids)
-      if (currentService.value && ids.includes(currentService.value.id)) currentService.value = null
-      pagination.value.total -= ids.length
+      return true
     })
   }
 
   const importCSV = async (file, clearExisting = false) => {
     return execute(async () => {
-      const res = await api.importCSV(file, clearExisting)
+      const result = await api.importCSV(file, clearExisting)
       await fetchServices()
-      return res
+      return result
     })
   }
 
   const fetchStats = async () => {
     isLoadingStats.value = true
     try {
-      const res = await api.getStats()
-      stats.value = res
-      return res
+      const result = await api.getStats()
+      stats.value = result
+      return result
     } finally {
       isLoadingStats.value = false
     }
   }
 
-  const fetchRecentServices = async (limit = DEFAULT_RECENT_LIMIT) => {
-    const res = await api.getRecent(limit)
-    recentServices.value = res
-    return res
+  const fetchRecentServices = async (limit = 10) => {
+    const result = await api.getRecent(limit)
+    recentServices.value = result
+    return result
   }
 
   const updateFilters = (newFilters) => {
@@ -222,11 +282,11 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
   }
 
   const nextPage = async () => {
-    await goToPage(filters.value.page + 1)
+    if (pagination.value.hasNext) await goToPage(filters.value.page + 1)
   }
 
   const previousPage = async () => {
-    await goToPage(filters.value.page - 1)
+    if (pagination.value.hasPrev) await goToPage(filters.value.page - 1)
   }
 
   const changeItemsPerPage = async (limit) => {
@@ -239,53 +299,58 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     error.value = null
   }
 
-  const refreshServices = async () => {
-    await fetchServices({ force: true })
-  }
-
-  // Méthode pour récupérer un service par slug (public)
-  const fetchServicesPublic = async (params) => {
-    const res = await api.getAllPublic(params)
-    servicesPublic.value = res
-    return res
-  }
-
-  const fetchServiceBySlug = async (slug) => {
-    return execute(async () => {
-      const service = await api.getOneBySlug(slug)
-      currentService.value = service
-      return service
-    })
-  }
+  const refreshServices = async () => await fetchServices({ force: true })
 
   return {
+    // État
     services,
     servicesPublic,
     currentService,
+    evaluations,
+    evaluationStats,
     stats,
     recentServices,
+
+    // Loading states
     isLoading,
     isLoadingStats,
+    isLoadingEvaluations,
     error,
-    pagination,
-    filters,
 
+    // Filtres & pagination
+    filters,
+    pagination,
+
+    // Computed
     servicesCount,
-    servicesByStatut,
     servicesActifs,
+    servicesByStatut,
     servicesByCategorie,
     hasFilters,
 
-    fetchServices,
+    // Actions publiques
     fetchServicesPublic,
+    fetchServiceBySlug,
+
+    // Évaluations
+    submitEvaluation,
+    fetchEvaluations,
+    fetchEvaluationStats,
+
+    // Actions admin
+    fetchServices,
     fetchServiceById,
     createService,
     updateService,
     deleteService,
     bulkDeleteServices,
     importCSV,
+
+    // Stats & données
     fetchStats,
     fetchRecentServices,
+
+    // Navigation & filtres
     updateFilters,
     resetFilters,
     applyFilters,
@@ -293,8 +358,9 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
     nextPage,
     previousPage,
     changeItemsPerPage,
+
+    // Utilitaires
     resetError,
     refreshServices,
-    fetchServiceBySlug,
   }
 })

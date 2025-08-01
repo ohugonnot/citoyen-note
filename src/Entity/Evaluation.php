@@ -54,6 +54,9 @@ class Evaluation
     #[ORM\Column(type: 'integer')]
     private int $nombreSignalement = 0;
 
+    #[ORM\Column(type: 'string', nullable: true)]
+    private ?string $pseudo = null;
+
     // Relations
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'evaluations')]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
@@ -206,8 +209,17 @@ class Evaluation
                $this->nombreSignalement < 3;
     }
 
-    public function getPseudoAffichage(): ?string
+    public function setPseudo(?string $pseudo): static
     {
-        return $this->estAnonyme ? 'Anonyme' : $this->user->getPseudo();
+        $this->pseudo = $pseudo;
+        return $this;
+    }
+
+    public function getPseudo(): string
+    {
+        if ($this->estAnonyme || $this->pseudo) {
+            return $this->pseudo ?? 'Utilisateur anonyme';
+        }
+        return $this->getUser()?->getPseudo() ?? 'Utilisateur anonyme';
     }
 }
