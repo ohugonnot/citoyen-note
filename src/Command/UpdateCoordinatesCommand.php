@@ -166,6 +166,7 @@ class UpdateCoordinatesCommand extends Command
     {
         $qb = $this->entityManager->getRepository(ServicePublic::class)
             ->createQueryBuilder('sp')
+            ->where('sp.score IS NULL OR sp.score <= 0.8')
             ->setMaxResults($limit)
             ->setFirstResult($offset);
         if (!$forceAll) {
@@ -282,6 +283,8 @@ class UpdateCoordinatesCommand extends Command
         $newLng = $result['lng'];
         $oldLat = $service->getLatitude();
         $oldLng = $service->getLongitude();
+        $score = $result['score'] ?? 0;
+        $distance = 100000;
 
         if ($oldLat && $oldLng) {
             $distance = $this->calculateDistance($oldLat, $oldLng, $newLat, $newLng);
@@ -292,12 +295,12 @@ class UpdateCoordinatesCommand extends Command
                     sprintf(
                         "[%s] NOK       – ID %s → (api) lat:%.6f != %.6f (bdd), (api) lng:%.6f == %.6f (bdd), score:%.2f\n",
                         date('Y-m-d H:i:s'),
-                        $service->getNom()." ".$service->getAdresseFormatee(),
+                        $service->getAdresseFormatee(),
                         $newLat,
-                        $newLng,
                         $oldLat,
+                        $newLng,
                         $oldLng,
-                        $result['score'] ?? 0
+                        $score
                     ),
                     FILE_APPEND
                 );
@@ -313,9 +316,20 @@ class UpdateCoordinatesCommand extends Command
             }
         }
 
-        if (!$isDryRun) {
+        if ($distance < 0.05) {
+            $service->setScore($score);
+            $this->entityManager->persist($service);
+            $this->entityManager->flush();
+            echo "Maj du score ca colle ".$service->getNom()." : on garde les coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee(). " \n";
+        }
+
+
+        if (!$isDryRun && $distance > 0.05 && (floatval($score) > 0.8 || (empty($oldLat) || empty($oldLng)))) {
+            echo "Score $score -> Distance : ". $distance*1000 . "\n";
+            echo "Maj du service ".$service->getNom()." : nouvelle coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee(). " \n";
             $service->setLatitude($newLat);
             $service->setLongitude($newLng);
+            $service->setScore($score);
             $this->entityManager->persist($service);
             $this->entityManager->flush();
         }

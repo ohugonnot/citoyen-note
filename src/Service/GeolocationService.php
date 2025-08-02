@@ -148,6 +148,7 @@ class GeolocationService
             try {
                 $data   = $response->toArray(false);
                 $result = $this->processGeocodeResponse($data);
+             //   echo "\r\nScore ".($result['score']??0) ." -> ".$response->getInfo('url')."\r";
                 $results[$key] = $result;
 
                 // Mettre en cache

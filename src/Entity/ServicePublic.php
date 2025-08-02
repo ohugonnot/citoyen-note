@@ -35,6 +35,20 @@ class ServicePublic
     #[ORM\Column(nullable: true)]
     private ?string $idExterne = null;
 
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $score = null;
+
+    public function getScore(): ?float
+    {
+        return $this->score;
+    }
+
+    public function setScore(?float $score): self
+    {
+        $this->score = $score;
+        return $this;
+    }
+
     // Getters/Setters
     public function getIdGouv(): ?string
     {

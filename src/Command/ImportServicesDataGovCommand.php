@@ -408,8 +408,8 @@ class ImportServicesDataGovCommand extends Command
     {
         return trim(implode(', ', array_filter([
             $adresse['numero_voie'] ?? '',
-            $adresse['complement1'] ?? '',
-            $adresse['complement2'] ?? ''
+          //  $adresse['complement1'] ?? '',
+          //  $adresse['complement2'] ?? ''
         ])));
     }
 
