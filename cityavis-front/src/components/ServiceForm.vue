@@ -723,7 +723,7 @@ const rechercherCoordonnees = debounce(async () => {
       const feature = data.features[0]
       localFormData.latitude = feature.geometry.coordinates[1]
       localFormData.longitude = feature.geometry.coordinates[0]
-
+      console.log(data)
       // 🗺️ Initialiser la carte avec les nouvelles coordonnées
       setTimeout(() => {
         initMap()

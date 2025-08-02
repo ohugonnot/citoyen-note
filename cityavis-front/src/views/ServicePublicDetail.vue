@@ -458,7 +458,7 @@
             </div>
 
             <!-- Horaires -->
-            <div v-if="service?.horaires_ouverture" class="card border-0 shadow-sm mb-3">
+            <div v-if="service" class="card border-0 shadow-sm mb-3">
               <div class="card-body p-3">
                 <h3 class="h6 fw-bold mb-3 text-primary">
                   <i class="bi bi-clock me-1"></i>Horaires d'ouverture
@@ -466,22 +466,22 @@
 
                 <div class="d-flex flex-column gap-2">
                   <div
-                    v-for="(horaire, jour) in service?.horaires_ouverture"
-                    :key="jour"
+                    v-for="jour in joursComplets"
+                    :key="jour.nom"
                     class="d-flex justify-content-between align-items-center py-2 px-3 rounded"
                     :class="{
-                      'bg-light': !horaire.ouvert && !isToday(jour),
+                      'bg-light': !jour.horaire.ouvert && !isToday(jour.nom),
                       'bg-success bg-opacity-10 border border-success':
-                        horaire.ouvert && isToday(jour),
+                        jour.horaire.ouvert && isToday(jour.nom),
                       'bg-danger bg-opacity-10 border border-danger':
-                        !horaire.ouvert && isToday(jour),
-                      border: isToday(jour),
+                        !jour.horaire.ouvert && isToday(jour.nom),
+                      border: isToday(jour.nom),
                     }"
                   >
                     <div class="fw-medium small">
-                      {{ formatDayName(jour) }}
+                      {{ formatDayName(jour.nom) }}
                       <span
-                        v-if="isToday(jour)"
+                        v-if="isToday(jour.nom)"
                         class="badge bg-primary ms-1"
                         style="font-size: 0.65rem"
                       >
@@ -489,13 +489,15 @@
                       </span>
                     </div>
                     <div class="text-end">
-                      <span v-if="!horaire.ouvert" class="text-muted small fw-medium">Fermé</span>
+                      <span v-if="!jour.horaire.ouvert" class="text-muted small fw-medium"
+                        >Fermé</span
+                      >
                       <div v-else>
                         <div
-                          v-for="creneau in horaire.creneaux"
+                          v-for="creneau in jour.horaire.creneaux"
                           :key="creneau.ouverture"
                           class="fw-medium small"
-                          :class="isToday(jour) ? 'text-success' : 'text-dark'"
+                          :class="isToday(jour.nom) ? 'text-success' : 'text-dark'"
                         >
                           {{ creneau.ouverture }} - {{ creneau.fermeture }}
                         </div>
@@ -964,8 +966,20 @@ const initMap = async () => {
   }
 }
 
-const formatDayName = (dayName) => {
-  const days = {
+const joursComplets = computed(() => {
+  const jours = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
+  const horairesExistants = service.value?.horaires_ouverture || {}
+
+  return jours.map((jour) => {
+    return {
+      nom: jour,
+      horaire: horairesExistants[jour] || { ouvert: false, creneaux: [] },
+    }
+  })
+})
+
+const formatDayName = (jour) => {
+  const noms = {
     lundi: 'Lundi',
     mardi: 'Mardi',
     mercredi: 'Mercredi',
@@ -974,14 +988,14 @@ const formatDayName = (dayName) => {
     samedi: 'Samedi',
     dimanche: 'Dimanche',
   }
-  return days[dayName] || dayName
+  return noms[jour] || jour.charAt(0).toUpperCase() + jour.slice(1)
 }
 
-const isToday = (dayName) => {
-  const today = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][
-    new Date().getDay()
-  ]
-  return dayName === today
+const isToday = (jour) => {
+  const today = new Date()
+  const dayIndex = today.getDay() // 0 = dimanche, 1 = lundi, etc.
+  const jours = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi']
+  return jours[dayIndex] === jour
 }
 
 const formatDate = (dateString) => {

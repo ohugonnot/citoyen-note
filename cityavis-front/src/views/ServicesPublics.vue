@@ -82,7 +82,7 @@ watch(
 )
 
 // Debounce la recherche
-const debouncedSearch = debounce(applyFilters, 300)
+const debouncedSearch = debounce(applyFilters, 500)
 
 const onSearchChange = () => {
   debouncedSearch()
