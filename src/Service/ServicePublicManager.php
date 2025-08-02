@@ -26,7 +26,6 @@ class ServicePublicManager
     {
         $service = new ServicePublic();
         $this->hydraterDepuisDonnees($service, $donnees);
-        
         $this->entityManager->persist($service);
         $this->entityManager->flush();
         
@@ -63,6 +62,9 @@ class ServicePublicManager
 
     private function hydraterDepuisDonnees(ServicePublic $service, array $donnees): void
     {
+        if (isset($donnees['id_gouv']) && !empty($donnees['id_gouv'])) {
+            $service->setIdGouv($donnees['id_gouv']);
+        }
         // Mapping direct des champs
         $mappingChamps = [
             'nom' => 'setNom',
@@ -71,8 +73,11 @@ class ServicePublicManager
             'ville' => 'setVille',
             'telephone' => 'setTelephone',
             'description' => 'setDescription',
+            'site_internet' => 'setSiteWeb',
         ];
-        
+        if(empty($donnees['code_postal'])) {
+            $donnees['code_postal'] = "00000";
+        }
         foreach ($mappingChamps as $cle => $setter) {
             if (isset($donnees[$cle]) && !empty($donnees[$cle])) {
                 $service->$setter($donnees[$cle]);
@@ -330,5 +335,22 @@ class ServicePublicManager
         }
         
         return $count;
+    }
+
+    public function sauvegarder(array $donnees): ServicePublic
+    {
+        $idGouv = $donnees['id_gouv'] ?? null;
+        
+        if (!empty($idGouv)) {
+            // Chercher un service existant par idGouv
+            $serviceExistant = $this->repository->findOneBy(['idGouv' => $idGouv]);
+            
+            if ($serviceExistant) {
+                return $this->mettreAJour($serviceExistant, $donnees);
+            }
+        }
+        
+        // Pas trouvé ou pas d'idGouv = créer nouveau
+        return $this->creer($donnees);
     }
 }

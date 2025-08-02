@@ -41,7 +41,8 @@ class CategorieService
     public function generateSlug(): void
     {
         $slugger = new \Symfony\Component\String\Slugger\AsciiSlugger();
-        $this->slug = $slugger->slug($this->nom)->lower()->toString();
+        $hash = substr(md5($this->nom  . uniqid()), 0, 8);
+        $this->slug = $slugger->slug($this->nom)->lower()->toString().'-'.$hash;
     }
     
     #[ORM\PrePersist]

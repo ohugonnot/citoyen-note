@@ -17,8 +17,8 @@ class CategorieServiceJsonHelper
             'slug' => $categorie->getSlug(),
             'actif' => $categorie->isActif(),
             'ordre_affichage' => $categorie->getOrdreAffichage(),
-            'note_moyenne' => $categorie->getNoteMoyenne(),
-            'nombre_services' => $categorie->getServicesPublics()->count(),
+      //      'note_moyenne' => $categorie->getNoteMoyenne(),
+      //      'nombre_services' => $categorie->getServicesPublics()->count(),
             'createdAt' => $categorie->getCreatedAt()?->format('c'),
             'updatedAt' => $categorie->getUpdatedAt()?->format('c'),
         ];

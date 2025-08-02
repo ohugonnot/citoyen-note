@@ -40,6 +40,10 @@ class ServicePublicController extends AbstractController
     #[Route('', name: 'api_services_publics_list', methods: ['GET'])]
     public function list(Request $request): JsonResponse
     {
+        $timeStart = microtime(true);
+        $timings = [];
+        
+        // Récupération des paramètres
         $search = $request->query->get('search', '');
         $villeData = $request->query->all('ville', []);
         $categorie = $request->query->get('categorie');
@@ -49,8 +53,13 @@ class ServicePublicController extends AbstractController
 
         $ville = $villeData['nom'] ?? '';
         $codePostal = $villeData['codePostal'] ?? '';
+        
+        $timings['params'] = round((microtime(true) - $timeStart) * 1000, 2);
 
         try {
+            // ÉTAPE 1: Compter le total
+            $stepStart = microtime(true);
+            
             $countQb = $this->serviceRepository->createQueryBuilder('s')
                 ->select('COUNT(DISTINCT s.id)')
                 ->leftJoin('s.categorie', 'c')
@@ -59,7 +68,12 @@ class ServicePublicController extends AbstractController
 
             $this->applyFilters($countQb, $search, $ville, $uuid, $codePostal);
             $total = (int) $countQb->getQuery()->getSingleScalarResult();
+            
+            $timings['count_query'] = round((microtime(true) - $stepStart) * 1000, 2);
 
+            // ÉTAPE 2: Récupérer les services
+            $stepStart = microtime(true);
+            
             $qb = $this->serviceRepository->createQueryBuilder('s')
                 ->select('s, c')
                 ->leftJoin('s.categorie', 'c')
@@ -70,18 +84,31 @@ class ServicePublicController extends AbstractController
                 ->setMaxResults($limit);
 
             $this->applyFilters($qb, $search, $ville, $uuid, $codePostal);
-
             $services = $qb->getQuery()->getResult();
+            
+            $timings['services_query'] = round((microtime(true) - $stepStart) * 1000, 2);
 
+            // ÉTAPE 3: Récupérer les catégories
+            $stepStart = microtime(true);
+            
+            $categories = $this->categorieRepository->findAll();
+            
+            $timings['categories_query'] = round((microtime(true) - $stepStart) * 1000, 2);
+
+            // ÉTAPE 4: Traitement des données services
+            $stepStart = microtime(true);
+            
             $servicesData = array_map(function (ServicePublic $service) {
                 $data = ServicePublicJsonHelper::build($service, 'public');
 
+                // Nettoyage des chaînes
                 foreach ($data as $key => $value) {
                     if (is_string($value)) {
                         $data[$key] = $this->cleanString($value);
                     }
                 }
 
+                // Calcul des évaluations
                 $evaluations = $service->getEvaluations()->filter(
                     fn($evaluation) => $evaluation->getStatut() === StatutEvaluation::ACTIVE
                 );
@@ -100,14 +127,26 @@ class ServicePublicController extends AbstractController
 
                 return $data;
             }, $services);
+            
+            $timings['services_processing'] = round((microtime(true) - $stepStart) * 1000, 2);
 
-            return $this->json([
+            // ÉTAPE 5: Traitement des catégories
+            $stepStart = microtime(true);
+            
+            $categoriesData = array_map(
+                fn(CategorieService $c) => CategorieServiceJsonHelper::build($c),
+                $categories
+            );
+            
+            $timings['categories_processing'] = round((microtime(true) - $stepStart) * 1000, 2);
+
+            // ÉTAPE 6: Construction de la réponse
+            $stepStart = microtime(true);
+            
+            $response = [
                 'success' => true,
                 'data' => $servicesData,
-                'categories' => array_map(
-                    fn(CategorieService $c) => CategorieServiceJsonHelper::build($c),
-                    $this->categorieRepository->findAll()
-                ),
+                'categories' => $categoriesData,
                 'pagination' => [
                     'page' => $page,
                     'limit' => $limit,
@@ -121,15 +160,43 @@ class ServicePublicController extends AbstractController
                     'ville' => $villeData,
                     'categorie' => $categorie,
                 ],
-            ], 200, [], [
+            ];
+            
+            $timings['response_build'] = round((microtime(true) - $stepStart) * 1000, 2);
+            $timings['total'] = round((microtime(true) - $timeStart) * 1000, 2);
+
+            // Ajouter les timings à la réponse (seulement en dev)
+            if ($this->getParameter('kernel.environment') === 'dev') {
+                $response['debug'] = [
+                    'timings' => $timings,
+                    'counts' => [
+                        'services' => count($servicesData),
+                        'categories' => count($categoriesData),
+                    ]
+                ];
+            }
+
+            return $this->json($response, 200, [], [
                 'json_encode_options' => JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
             ]);
+            
         } catch (\Throwable $e) {
-            return $this->json([
+            $timings['total'] = round((microtime(true) - $timeStart) * 1000, 2);
+            
+            $errorResponse = [
                 'success' => false,
                 'message' => 'Erreur lors de la récupération des services',
                 'error' => $this->getParameter('kernel.environment') === 'dev' ? $e->getMessage() : 'Erreur interne'
-            ], 500, [], [
+            ];
+            
+            if ($this->getParameter('kernel.environment') === 'dev') {
+                $errorResponse['debug'] = [
+                    'timings' => $timings,
+                    'trace' => $e->getTraceAsString()
+                ];
+            }
+            
+            return $this->json($errorResponse, 500, [], [
                 'json_encode_options' => JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
             ]);
         }

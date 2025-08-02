@@ -11,6 +11,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\String\Slugger\AsciiSlugger;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -26,6 +27,42 @@ class ServicePublic
     #[ORM\Id]
     #[ORM\Column(type: 'uuid', unique: true)]
     private Uuid $id;
+
+    #[ORM\Column(unique: true, nullable: true)]
+    private ?string $idGouv = null;
+
+    // Garder aussi idExterne pour d'autres sources de données
+    #[ORM\Column(nullable: true)]
+    private ?string $idExterne = null;
+
+    // Getters/Setters
+    public function getIdGouv(): ?string
+    {
+        return $this->idGouv;
+    }
+
+    public function setIdGouv(?string $idGouv): static
+    {
+        $this->idGouv = $idGouv;
+        return $this;
+    }
+
+    public function getIdExterne(): ?string
+    {
+        return $this->idExterne;
+    }
+
+    public function setIdExterne(?string $idExterne): static
+    {
+        $this->idExterne = $idExterne;
+        return $this;
+    }
+
+    // Méthode helper pour gérer les différents identifiants
+    public function getIdentifiantUnique(): ?string
+    {
+        return $this->idGouv ?? $this->idExterne;
+    }
 
     #[ORM\Column(length: 200)]
     #[Assert\NotBlank]
@@ -84,17 +121,24 @@ class ServicePublic
     #[ORM\Column(type: Types::STRING, length: 255, unique: true)]
     private ?string $slug = null;
 
+    private static ?AsciiSlugger $slugger = null;
     public function generateSlug(): void
     {
-        $slugger = new \Symfony\Component\String\Slugger\AsciiSlugger();
+        if (self::$slugger === null) {
+            self::$slugger = new AsciiSlugger();
+        }
         
         $parts = [$this->nom];
-        if (isset($this->ville) && !empty($this->ville)) {
+        if (!empty($this->ville)) {
             $parts[] = $this->ville;
         }
         
         $baseSlug = implode(' ', $parts);
-        $this->slug = $slugger->slug($baseSlug)->lower()->toString();
+        $cleanSlug = self::$slugger->slug($baseSlug)->lower()->toString();
+        
+        // Ajouter un hash court pour garantir l'unicité
+        $hash = substr(md5($this->nom . ($this->ville ?? '') . uniqid()), 0, 8);
+        $this->slug = $cleanSlug . '-' . $hash;
     }
     
     #[ORM\PrePersist]
