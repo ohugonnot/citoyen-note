@@ -155,6 +155,7 @@ class UpdateCoordinatesCommand extends Command
     {
         $qb = $this->entityManager->getRepository(ServicePublic::class)
             ->createQueryBuilder('sp')
+            ->where('sp.score IS NULL OR sp.score <= 0.8')
             ->select('COUNT(sp.id)');
         if (! $forceAll) {
             $qb->where('sp.latitude IS NULL OR sp.longitude IS NULL');
