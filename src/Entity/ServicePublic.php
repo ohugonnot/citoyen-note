@@ -154,14 +154,14 @@ class ServicePublic
     }
 
     // Relations
-    #[ORM\ManyToOne(targetEntity: CategorieService::class, inversedBy: 'servicesPublics')]
+    #[ORM\ManyToOne(targetEntity: CategorieService::class, cascade: ['persist'], inversedBy: 'servicesPublics')]
     #[ORM\JoinColumn(nullable: true)]
     private ?CategorieService $categorie = null;
 
     #[ORM\OneToMany(
-        mappedBy: 'servicePublic', 
         targetEntity: Evaluation::class,
-        cascade: ['remove'],  
+        mappedBy: 'servicePublic',
+        cascade: ['remove'],
         orphanRemoval: true   
     )]
     private Collection $evaluations;

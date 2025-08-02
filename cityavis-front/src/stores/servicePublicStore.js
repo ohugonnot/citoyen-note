@@ -108,7 +108,7 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
 
   const fetchServicesPublic = async (params = {}) => {
     const result = await api.getAllPublic(params)
-    servicesPublic.value = result.data || result
+    servicesPublic.value = result
     return result
   }
 

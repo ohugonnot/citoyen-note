@@ -12,6 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Filesystem\Filesystem;
+use Doctrine\ORM\EntityManagerInterface;
 
 #[AsCommand(
     name: 'app:import-services-publics',
@@ -23,7 +24,8 @@ class ImportServicesDataGovCommand extends Command
     protected static $defaultName = 'app:import-services-publics';
 
     public function __construct(
-        private readonly ServicePublicManager $manager
+        private readonly ServicePublicManager $manager,
+        private readonly EntityManagerInterface $entityManager
     ) {
         parent::__construct();
     }
@@ -33,10 +35,12 @@ class ImportServicesDataGovCommand extends Command
         $this
             ->addArgument('fichier', InputArgument::REQUIRED, 'Chemin vers le fichier JSON ou ZIP')
             ->addOption('limit', 'l', InputOption::VALUE_OPTIONAL, 'Nombre max de services à importer')
-            ->addOption('batch-size', 'b', InputOption::VALUE_OPTIONAL, 'Taille des lots (défaut: 50)', 50)
+            ->addOption('batch-size', 'b', InputOption::VALUE_OPTIONAL, 'Taille des lots (défaut: 100)', 100)
             ->addOption('log-errors', null, InputOption::VALUE_OPTIONAL, 'Fichier de log des erreurs', 'var/log/import_services_errors.log')
             ->addOption('skip-existing', 's', InputOption::VALUE_NONE, 'Ignorer les services existants')
-            ->addOption('start-from', null, InputOption::VALUE_OPTIONAL, 'Commencer à partir du service N', 0);
+            ->addOption('start-from', null, InputOption::VALUE_OPTIONAL, 'Commencer à partir du service N', 0)
+            ->addOption('memory-limit', 'm', InputOption::VALUE_OPTIONAL, 'Limite mémoire en MB (défaut: 1024)', 1024)
+            ->addOption('clear-cache-every', 'c', InputOption::VALUE_OPTIONAL, 'Vider le cache Doctrine tous les X lots (défaut: 10)', 10);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -48,6 +52,12 @@ class ImportServicesDataGovCommand extends Command
         $startFrom = (int) $input->getOption('start-from');
         $logPath = $input->getOption('log-errors');
         $skipExisting = $input->getOption('skip-existing');
+        $memoryLimit = (int) $input->getOption('memory-limit');
+        $clearCacheEvery = (int) $input->getOption('clear-cache-every');
+
+        // Configuration mémoire optimisée
+        ini_set('memory_limit', $memoryLimit . 'M');
+        ini_set('max_execution_time', 0); // Pas de limite de temps
 
         $fs = new Filesystem();
 
@@ -56,20 +66,31 @@ class ImportServicesDataGovCommand extends Command
             return Command::FAILURE;
         }
 
-        $io->title('Import des Services Publics');
-        
+        $io->title('Import des Services Publics (Version Optimisée)');
+
         try {
             $fichierTraite = $this->preparerFichier($chemin, $io, $fs);
-            
+
             if (!$fichierTraite) {
                 return Command::FAILURE;
             }
 
             $tailleFichier = filesize($fichierTraite);
             $io->note("Taille du fichier : " . $this->formatBytes($tailleFichier));
+            $io->note("Taille des lots : $batchSize services");
+            $io->note("Nettoyage cache Doctrine tous les $clearCacheEvery lots");
 
-            $resultats = $this->traiterFichierJsonStream($fichierTraite, $limit, $batchSize, $startFrom, $logPath, $skipExisting, $io);
-            
+            $resultats = $this->traiterFichierJsonStreamOptimise(
+                $fichierTraite,
+                $limit,
+                $batchSize,
+                $startFrom,
+                $logPath,
+                $skipExisting,
+                $clearCacheEvery,
+                $io
+            );
+
             // Nettoyage
             if ($fichierTraite !== $chemin && $fs->exists($fichierTraite)) {
                 $fs->remove($fichierTraite);
@@ -81,6 +102,207 @@ class ImportServicesDataGovCommand extends Command
         } catch (\Exception $e) {
             $io->error('Erreur lors de l\'import : ' . $e->getMessage());
             return Command::FAILURE;
+        }
+    }
+
+    private function traiterFichierJsonStreamOptimise(
+        string $chemin,
+        ?int $limit,
+        int $batchSize,
+        int $startFrom,
+        string $logPath,
+        bool $skipExisting,
+        int $clearCacheEvery,
+        SymfonyStyle $io
+    ): array {
+        $io->note('Analyse du fichier JSON...');
+
+        // Ouvrir le fichier et préparer le log
+        $handle = fopen($chemin, 'r');
+        if (!$handle) {
+            throw new \RuntimeException("Impossible d'ouvrir le fichier");
+        }
+
+        $logHandle = fopen($logPath, 'w');
+        fwrite($logHandle, "Index;Service ID;Erreur;Nom Service\n");
+
+        $stats = [
+            'total' => 0,
+            'succes' => 0,
+            'erreurs' => 0,
+            'ignores' => 0,
+            'lots_traites' => 0
+        ];
+
+        try {
+            $io->note('Recherche du début du tableau services...');
+            $this->chercherDebutServices($handle, $io);
+            $io->note('Début du parsing des services...');
+
+            // Parser les services un par un
+            $parser = new StreamingJsonServiceParser($handle);
+
+            $batch = [];
+            $serviceCount = 0;
+            $totalProcessed = 0;
+            $lotCount = 0;
+
+            // Progress bar
+            $progress = new ProgressBar($io);
+            $progress->setFormat(' %current% services traités - %elapsed% - %memory% - %message%');
+            $progress->setMessage('Démarrage...');
+            $progress->start();
+
+            foreach ($parser->parseServices() as $service) {
+                $totalProcessed++;
+
+                // Skip si on commence à partir d'un index spécifique
+                if ($totalProcessed <= $startFrom) {
+                    continue;
+                }
+
+                // Vérifier la limite
+                if ($limit && $serviceCount >= $limit) {
+                    break;
+                }
+
+                try {
+                    if (!$this->validerService($service)) {
+                        $stats['ignores']++;
+                        $progress->advance();
+                        $progress->setMessage("Services: {$stats['succes']}, Erreurs: {$stats['erreurs']}, Ignorés: {$stats['ignores']}");
+                        continue;
+                    }
+
+                    $serviceTransforme = $this->transformer($service);
+                    $batch[] = $serviceTransforme;
+
+                    // Traitement par lot optimisé
+                    if (count($batch) >= $batchSize) {
+                        $resultatsLot = $this->traiterLotOptimise($batch, $skipExisting, $logHandle, $totalProcessed);
+                        $stats['succes'] += $resultatsLot['succes'];
+                        $stats['erreurs'] += $resultatsLot['erreurs'];
+                        $stats['lots_traites']++;
+                        $batch = [];
+                        $lotCount++;
+
+                        // Nettoyage mémoire périodique
+                        if ($lotCount % $clearCacheEvery === 0) {
+                            $this->nettoyerMemoire($io);
+                        }
+                    }
+
+                } catch (\Exception $e) {
+                    $stats['erreurs']++;
+                    $serviceId = $service['id'] ?? 'unknown';
+                    $serviceName = $service['nom'] ?? 'unknown';
+                    fwrite($logHandle, "$totalProcessed;$serviceId;\"{$e->getMessage()}\";\"$serviceName\"\n");
+                }
+
+                $serviceCount++;
+                $stats['total']++;
+
+                $progress->advance();
+                $progress->setMessage(sprintf(
+                    "Lot %d - Succès: %d, Erreurs: %d, Mémoire: %s",
+                    $lotCount,
+                    $stats['succes'],
+                    $stats['erreurs'],
+                    $this->formatBytes(memory_get_usage(true))
+                ));
+
+                // Affichage périodique détaillé
+                if ($serviceCount % ($batchSize * 10) === 0) {
+                    $io->writeln('');
+                    $io->note(sprintf(
+                        "Traité %d services (%d lots) - Mémoire: %s (pic: %s)",
+                        $serviceCount,
+                        $lotCount,
+                        $this->formatBytes(memory_get_usage(true)),
+                        $this->formatBytes(memory_get_peak_usage(true))
+                    ));
+                }
+            }
+
+            // Traiter le dernier lot
+            if (!empty($batch)) {
+                $resultatsLot = $this->traiterLotOptimise($batch, $skipExisting, $logHandle, $totalProcessed);
+                $stats['succes'] += $resultatsLot['succes'];
+                $stats['erreurs'] += $resultatsLot['erreurs'];
+                $stats['lots_traites']++;
+            }
+
+            // Nettoyage final
+            $this->nettoyerMemoire($io, true);
+            $progress->finish();
+
+        } finally {
+            fclose($handle);
+            fclose($logHandle);
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Traitement optimisé par lot avec une seule transaction
+     */
+    private function traiterLotOptimise(array $services, bool $skipExisting, $logHandle, int $currentIndex): array
+    {
+        $stats = ['succes' => 0, 'erreurs' => 0];
+
+        try {
+            // Commencer une transaction pour tout le lot
+            $this->entityManager->beginTransaction();
+
+            foreach ($services as $service) {
+                try {
+                    // Version optimisée sans flush individuel
+                    $this->manager->sauvegarder($service, false); // On ajoute un paramètre pour éviter le flush
+                    $stats['succes']++;
+                } catch (\Exception $e) {
+                    $stats['erreurs']++;
+                    $serviceId = $service['id_gouv'] ?? 'unknown';
+                    $serviceName = $service['nom'] ?? 'unknown';
+                    fwrite($logHandle, "$currentIndex;$serviceId;\"{$e->getMessage()}\";\"$serviceName\"\n");
+                }
+            }
+
+            // Flush une seule fois pour tout le lot
+            $this->entityManager->flush();
+            $this->entityManager->commit();
+
+        } catch (\Exception $e) {
+            $this->entityManager->rollback();
+            throw $e;
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Nettoyage mémoire optimisé avec gestion du cache catégories
+     */
+    private function nettoyerMemoire(SymfonyStyle $io, bool $final = false): void
+    {
+        $memoryBefore = memory_get_usage(true);
+
+        // Nettoyer le contexte du manager (EntityManager + cache catégories)
+        $this->manager->nettoyerContexte();
+
+        // Forcer le garbage collector
+        gc_collect_cycles();
+
+        $memoryAfter = memory_get_usage(true);
+        $memoryFreed = $memoryBefore - $memoryAfter;
+
+        if ($final || $memoryFreed > 0) {
+            $io->note(sprintf(
+                "Mémoire nettoyée: %s libérés (avant: %s, après: %s)",
+                $this->formatBytes($memoryFreed),
+                $this->formatBytes($memoryBefore),
+                $this->formatBytes($memoryAfter)
+            ));
         }
     }
 
@@ -104,7 +326,7 @@ class ImportServicesDataGovCommand extends Command
             if (preg_match('/\.json$/i', $entry) && !str_contains($entry, '__MACOSX')) {
                 $tempFile = sys_get_temp_dir() . '/import_services_' . uniqid() . '.json';
                 $io->note("Extraction de : $entry");
-                
+
                 if (copy("zip://$chemin#$entry", $tempFile)) {
                     break;
                 }
@@ -115,159 +337,39 @@ class ImportServicesDataGovCommand extends Command
         return $tempFile;
     }
 
-    private function traiterFichierJsonStream(string $chemin, ?int $limit, int $batchSize, int $startFrom, string $logPath, bool $skipExisting, SymfonyStyle $io): array
-    {
-        $io->note('Analyse du fichier JSON...');
-        
-        // Ouvrir le fichier et préparer le log
-        $handle = fopen($chemin, 'r');
-        if (!$handle) {
-            throw new \RuntimeException("Impossible d'ouvrir le fichier");
-        }
-
-        $logHandle = fopen($logPath, 'w');
-        fwrite($logHandle, "Index;Service ID;Erreur;Nom Service\n");
-
-        $stats = [
-            'total' => 0,
-            'succes' => 0,
-            'erreurs' => 0,
-            'ignores' => 0
-        ];
-
-        // Configuration mémoire
-        ini_set('memory_limit', '512M');
-        
-        try {
-            $io->note('Recherche du début du tableau services...');
-            
-            // Chercher le début du tableau "service"
-            $this->chercherDebutServices($handle, $io);
-            
-            $io->note('Début du parsing des services...');
-            
-            // Parser les services un par un
-            $parser = new StreamingJsonServiceParser($handle);
-            
-            $batch = [];
-            $serviceCount = 0;
-            $totalProcessed = 0;
-            
-            // Progress bar indéterminée au début
-            $progress = new ProgressBar($io);
-            $progress->setFormat(' %current% services traités - %elapsed% - %memory% - %message%');
-            $progress->setMessage('Démarrage...');
-            $progress->start();
-
-            foreach ($parser->parseServices() as $service) {
-                $totalProcessed++;
-                
-                // Skip si on commence à partir d'un index spécifique
-                if ($totalProcessed <= $startFrom) {
-                    continue;
-                }
-
-                // Vérifier la limite
-                if ($limit && $serviceCount >= $limit) {
-                    break;
-                }
-
-                try {
-                    if (!$this->validerService($service)) {
-                        $stats['ignores']++;
-                        $progress->advance();
-                        $progress->setMessage("Services: {$stats['succes']}, Erreurs: {$stats['erreurs']}, Ignorés: {$stats['ignores']}");
-                        continue;
-                    }
-
-                    $serviceTransforme = $this->transformer($service);
-                    $batch[] = $serviceTransforme;
-
-                    if (count($batch) >= $batchSize) {
-                        $resultatsLot = $this->traiterLot($batch, $skipExisting, $logHandle, $totalProcessed);
-                        $stats['succes'] += $resultatsLot['succes'];
-                        $stats['erreurs'] += $resultatsLot['erreurs'];
-                        $batch = [];
-                        
-                        // Nettoyage mémoire
-                        gc_collect_cycles();
-                    }
-
-                } catch (\Exception $e) {
-                    $stats['erreurs']++;
-                    $serviceId = $service['id'] ?? 'unknown';
-                    $serviceName = $service['nom'] ?? 'unknown';
-                    fwrite($logHandle, "$totalProcessed;$serviceId;\"{$e->getMessage()}\";\"$serviceName\"\n");
-                }
-
-                $serviceCount++;
-                $stats['total']++;
-                
-                $progress->advance();
-                $progress->setMessage("Services: {$stats['succes']}, Erreurs: {$stats['erreurs']}, Mémoire: " . $this->formatBytes(memory_get_usage(true)));
-                
-                // Affichage périodique
-                if ($serviceCount % 100 === 0) {
-                    $io->writeln(''); // Nouvelle ligne après la progress bar
-                    $io->note("Traité $serviceCount services - Mémoire: " . $this->formatBytes(memory_get_peak_usage(true)));
-                }
-            }
-
-            // Traiter le dernier lot
-            if (!empty($batch)) {
-                $resultatsLot = $this->traiterLot($batch, $skipExisting, $logHandle, $totalProcessed);
-                $stats['succes'] += $resultatsLot['succes'];
-                $stats['erreurs'] += $resultatsLot['erreurs'];
-            }
-
-            $progress->finish();
-
-        } finally {
-            fclose($handle);
-            fclose($logHandle);
-        }
-
-        return $stats;
-    }
-
     private function chercherDebutServices($handle, SymfonyStyle $io): void
     {
         $buffer = '';
         $found = false;
         $bytesRead = 0;
-        
+
         while (!feof($handle) && !$found) {
             $chunk = fread($handle, 8192);
             $buffer .= $chunk;
             $bytesRead += strlen($chunk);
-            
-            // Chercher "service" : [
+
             if (strpos($buffer, '"service"') !== false) {
-                // Trouver la position exacte du début du tableau
                 $pos = strpos($buffer, '"service"');
                 $remaining = substr($buffer, $pos);
-                
-                // Chercher le début du tableau
+
                 $arrayStart = strpos($remaining, '[');
                 if ($arrayStart !== false) {
-                    // Repositionner le pointeur de fichier
                     $totalPos = $bytesRead - strlen($buffer) + $pos + $arrayStart + 1;
                     fseek($handle, $totalPos);
                     $found = true;
                     $io->note("Tableau services trouvé à la position $totalPos");
                 }
             }
-            
-            // Garder seulement les 1000 derniers caractères pour éviter les coupures
+
             if (strlen($buffer) > 8192) {
                 $buffer = substr($buffer, -1000);
             }
-            
+
             if ($bytesRead % (1024 * 1024) === 0) {
                 $io->note("Recherche... " . $this->formatBytes($bytesRead) . " analysés");
             }
         }
-        
+
         if (!$found) {
             throw new \RuntimeException("Impossible de trouver le tableau 'service' dans le JSON");
         }
@@ -276,25 +378,6 @@ class ImportServicesDataGovCommand extends Command
     private function validerService(array $service): bool
     {
         return !empty($service['nom']) && !empty($service['adresse']);
-    }
-
-    private function traiterLot(array $services, bool $skipExisting, $logHandle, int $currentIndex): array
-    {
-        $stats = ['succes' => 0, 'erreurs' => 0];
-        
-        foreach ($services as $service) {
-            try {
-                $this->manager->sauvegarder($service);
-                $stats['succes']++;
-            } catch (\Exception $e) {
-                $stats['erreurs']++;
-                $serviceId = $service['id'] ?? 'unknown';
-                $serviceName = $service['nom'] ?? 'unknown';
-                fwrite($logHandle, "$currentIndex;$serviceId;\"{$e->getMessage()}\";\"$serviceName\"\n");
-            }
-        }
-        
-        return $stats;
     }
 
     private function transformer(array $service): array
@@ -367,26 +450,37 @@ class ImportServicesDataGovCommand extends Command
         $jours = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
         $resultat = [];
 
+        // Initialisation : tous fermés
         foreach ($jours as $jour) {
             $resultat[$jour] = ['ouvert' => false, 'creneaux' => []];
         }
 
         foreach ($plages as $plage) {
             $jourDebut = $this->trouverIndexJour($plage['nom_jour_debut'] ?? '');
-            $jourFin = $this->trouverIndexJour($plage['nom_jour_fin'] ?? $plage['nom_jour_debut'] ?? '');
+            $jourFin   = $this->trouverIndexJour($plage['nom_jour_fin']   ?? $plage['nom_jour_debut'] ?? '');
 
-            if ($jourDebut === false) continue;
-            if ($jourFin === false) $jourFin = $jourDebut;
+            if ($jourDebut === false) {
+                continue;
+            }
+            if ($jourFin === false) {
+                $jourFin = $jourDebut;
+            }
 
             for ($i = $jourDebut; $i <= $jourFin; $i++) {
                 $jour = $jours[$i];
                 $resultat[$jour]['ouvert'] = true;
-                
-                if (!empty($plage['valeur_heure_debut_1']) && !empty($plage['valeur_heure_fin_1'])) {
-                    $resultat[$jour]['creneaux'][] = [
-                        'ouverture' => substr($plage['valeur_heure_debut_1'], 0, 5),
-                        'fermeture' => substr($plage['valeur_heure_fin_1'], 0, 5),
-                    ];
+
+                // On boucle sur les deux créneaux possibles
+                for ($slot = 1; $slot <= 2; $slot++) {
+                    $debutKey = "valeur_heure_debut_{$slot}";
+                    $finKey   = "valeur_heure_fin_{$slot}";
+
+                    if (!empty($plage[$debutKey]) && !empty($plage[$finKey])) {
+                        $resultat[$jour]['creneaux'][] = [
+                            'ouverture' => substr($plage[$debutKey], 0, 5),
+                            'fermeture' => substr($plage[$finKey],   0, 5),
+                        ];
+                    }
                 }
             }
         }
@@ -411,21 +505,29 @@ class ImportServicesDataGovCommand extends Command
     {
         $io->newLine(2);
         $io->success('Import terminé !');
-        
+
         $io->table(['Métrique', 'Valeur'], [
             ['Total traité', number_format($stats['total'])],
             ['Succès', number_format($stats['succes'])],
             ['Erreurs', number_format($stats['erreurs'])],
-            ['Ignorés', number_format($stats['ignores'])]
+            ['Ignorés', number_format($stats['ignores'])],
+            ['Lots traités', number_format($stats['lots_traites'])],
+            ['Mémoire pic', $this->formatBytes(memory_get_peak_usage(true))]
         ]);
 
         if ($stats['erreurs'] > 0) {
             $io->warning("Erreurs enregistrées dans : $logPath");
         }
+
+        // Calcul des performances
+        if ($stats['lots_traites'] > 0) {
+            $servicesParLot = round($stats['succes'] / $stats['lots_traites'], 2);
+            $io->note("Performance: $servicesParLot services par lot en moyenne");
+        }
     }
 }
 
-// Parser streaming optimisé
+// Parser streaming optimisé (inchangé)
 class StreamingJsonServiceParser
 {
     private $handle;
@@ -444,39 +546,37 @@ class StreamingJsonServiceParser
     {
         while (!feof($this->handle)) {
             $chunk = fread($this->handle, 4096);
-            
+
             for ($i = 0; $i < strlen($chunk); $i++) {
                 $char = $chunk[$i];
-                
+
                 if ($char === '{' && !$this->inService) {
                     $this->inService = true;
                     $this->serviceBuffer = '{';
                     $this->braceCount = 1;
                 } elseif ($this->inService) {
                     $this->serviceBuffer .= $char;
-                    
+
                     if ($char === '{') {
                         $this->braceCount++;
                     } elseif ($char === '}') {
                         $this->braceCount--;
-                        
+
                         if ($this->braceCount === 0) {
-                            // Service complet trouvé
                             try {
                                 $service = json_decode($this->serviceBuffer, true, 512, JSON_THROW_ON_ERROR);
                                 yield $service;
                             } catch (\JsonException $e) {
                                 // Ignorer les services malformés
                             }
-                            
+
                             $this->inService = false;
                             $this->serviceBuffer = '';
                         }
                     }
                 }
             }
-            
-            // Libération mémoire si le buffer devient trop grand
+
             if (strlen($this->serviceBuffer) > 1024 * 1024) {
                 $this->inService = false;
                 $this->serviceBuffer = '';

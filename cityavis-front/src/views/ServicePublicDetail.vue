@@ -31,7 +31,7 @@
                   <i class="bi bi-house me-1"></i>Accueil
                 </router-link>
               </li>
-              <li class="breadcrumb-item text-muted">{{ service?.categorie.nom }}</li>
+              <li class="breadcrumb-item text-muted">{{ service?.categorie?.nom }}</li>
               <li class="breadcrumb-item active" aria-current="page">{{ service?.nom }}</li>
             </ol>
           </nav>
@@ -47,13 +47,13 @@
                     <div
                       class="service-icon p-2 rounded me-3 flex-shrink-0"
                       :style="{
-                        backgroundColor: service?.categorie.couleur + '20',
-                        border: `1px solid ${service?.categorie.couleur}50`,
+                        backgroundColor: service?.categorie?.couleur + '20',
+                        border: `1px solid ${service?.categorie?.couleur}50`,
                       }"
                     >
                       <i
-                        :class="`bi ${service?.categorie.icone}`"
-                        :style="{ color: service?.categorie.couleur }"
+                        :class="`bi ${service?.categorie?.icone}`"
+                        :style="{ color: service?.categorie?.couleur }"
                         class="fs-4"
                       ></i>
                     </div>
@@ -951,7 +951,7 @@ const initMap = async () => {
 
     const customIcon = L.divIcon({
       html: `<div class="custom-marker">
-               <i class="bi ${service.value.categorie.icone}"></i>
+               <i class="bi ${service.value.categorie?.icone}"></i>
              </div>`,
       className: 'custom-marker-container',
       iconSize: [30, 30],

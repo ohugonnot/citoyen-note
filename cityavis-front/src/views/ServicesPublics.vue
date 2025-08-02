@@ -19,16 +19,10 @@ const { categoriesOptions, isLoading: categoriesLoading } = storeToRefs(categori
 
 // Computed pour un accès plus facile
 const services = computed(() => {
-  if (Array.isArray(servicesPublic.value)) {
-    return servicesPublic.value
-  }
   return servicesPublic.value?.data || []
 })
 
 const pagination = computed(() => {
-  if (Array.isArray(servicesPublic.value)) {
-    return {}
-  }
   return servicesPublic.value?.pagination || {}
 })
 
@@ -44,6 +38,40 @@ const getStoredViewMode = () => {
     return 'grid'
   }
 }
+
+const startPage = computed(() => {
+  const maxVisible = 5; // Nombre de pages visibles autour de la page courante
+  let start = Math.max(1, pagination.value.page - Math.floor(maxVisible / 2));
+  let end = Math.min(pagination.value.pages, start + maxVisible - 1);
+
+  // Ajuster le début si on est près de la fin
+  if (end - start < maxVisible - 1) {
+    start = Math.max(1, end - maxVisible + 1);
+  }
+
+  return start;
+});
+
+const endPage = computed(() => {
+  const maxVisible = 5;
+  let start = Math.max(1, pagination.value.page - Math.floor(maxVisible / 2));
+  let end = Math.min(pagination.value.pages, start + maxVisible - 1);
+
+  // Ajuster le début si on est près de la fin
+  if (end - start < maxVisible - 1) {
+    start = Math.max(1, end - maxVisible + 1);
+  }
+
+  return end;
+});
+
+const visiblePages = computed(() => {
+  const pages = [];
+  for (let i = startPage.value; i <= endPage.value; i++) {
+    pages.push(i);
+  }
+  return pages;
+});
 
 // UI State
 const viewMode = ref(getStoredViewMode())
@@ -170,7 +198,8 @@ const updateMapMarkers = () => {
       }).bindPopup(`
           <div class="marker-popup">
             <h6>${service.nom}</h6>
-            <p class="mb-1"><small>${service.ville} ${service.code_postal}</small></p>
+            <p class="mb-0"><small>${service.adresse}</small></p>
+            <p class="mb-1 mt-0"><small>${service.ville} ${service.code_postal}</small></p>
             <div class="d-flex align-items-center gap-2 mb-2">
               <div class="rating-stars">
                 ${generateStarsHTML(service.note_moyenne || 0)}
@@ -298,7 +327,7 @@ const searchCities = async (event) => {
 
   try {
     const response = await fetch(
-      `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(query)}&boost=population&limit=10&fields=nom,code,codesPostaux,departement,population`,
+      `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(query)}&boost=population&limit=10&fields=nom,code,codesPostaux,departement,centre`,
     )
 
     const cities = await response.json()
@@ -310,6 +339,8 @@ const searchCities = async (event) => {
       departement: city.departement?.nom || '',
       population: city.population || 0,
       displayName: `${city.nom} (${city.departement?.nom || ''}) - ${city.codesPostaux?.[0] || ''}`,
+      longitude: city.centre.coordinates[0] || null,
+      latitude: city.centre.coordinates[1] || null,
     }))
 
     cityCache.set(cacheKey, {
@@ -530,6 +561,7 @@ onMounted(async () => {
                     <div v-if="service.ville" class="d-flex align-items-center mb-2">
                       <i class="bi bi-geo-alt text-muted me-2"></i>
                       <small class="text-muted">
+                        {{ service.adresse }}<br />
                         {{ service.ville }} {{ service.code_postal }}
                       </small>
                     </div>
@@ -565,53 +597,81 @@ onMounted(async () => {
           <!-- Pagination -->
           <nav v-if="pagination.pages > 1" class="mt-5">
             <ul class="pagination justify-content-center">
+              <!-- Bouton Précédent -->
               <li class="page-item" :class="{ disabled: pagination.page === 1 }">
                 <button
                   class="page-link"
                   :disabled="pagination.page === 1"
-                  @click="
-                    onPageChange({
-                      first: (pagination.page - 2) * pagination.limit,
-                      rows: pagination.limit,
-                    })
-                  "
+                  @click="onPageChange({
+          first: (pagination.page - 2) * pagination.limit,
+          rows: pagination.limit,
+        })"
                 >
                   Précédent
                 </button>
               </li>
 
+              <!-- Première page si on n'est pas au début -->
+              <li v-if="startPage > 1" class="page-item">
+                <button class="page-link" @click="onPageChange({ first: 0, rows: pagination.limit })">
+                  1
+                </button>
+              </li>
+
+              <!-- Points de suspension si on est loin du début -->
+              <li v-if="startPage > 2" class="page-item disabled">
+                <span class="page-link">...</span>
+              </li>
+
+              <!-- Pages visibles autour de la page courante -->
               <li
-                v-for="page in Math.min(pagination.pages, 10)"
+                v-for="page in visiblePages"
                 :key="page"
                 class="page-item"
                 :class="{ active: page === pagination.page }"
               >
                 <button
                   class="page-link"
-                  @click="
-                    onPageChange({ first: (page - 1) * pagination.limit, rows: pagination.limit })
-                  "
+                  @click="onPageChange({ first: (page - 1) * pagination.limit, rows: pagination.limit })"
                 >
                   {{ page }}
                 </button>
               </li>
 
-              <li class="page-item" :class="{ disabled: pagination.page === pagination.pages }">
+              <!-- Points de suspension si on est loin de la fin -->
+              <li v-if="endPage < pagination.pages - 1" class="page-item disabled">
+                <span class="page-link">...</span>
+              </li>
+
+              <!-- Dernière page si on n'est pas à la fin -->
+              <li v-if="endPage < pagination.pages" class="page-item">
                 <button
                   class="page-link"
-                  :disabled="pagination.page === pagination.pages"
-                  @click="
-                    onPageChange({
+                  @click="onPageChange({
+                      first: (pagination.pages - 1) * pagination.limit,
+                      rows: pagination.limit
+                    })"
+                            >
+                              {{ pagination.pages }}
+                            </button>
+                          </li>
+
+                          <!-- Bouton Suivant -->
+                          <li class="page-item" :class="{ disabled: pagination.page === pagination.pages }">
+                            <button
+                              class="page-link"
+                              :disabled="pagination.page === pagination.pages"
+                              @click="onPageChange({
                       first: pagination.page * pagination.limit,
                       rows: pagination.limit,
-                    })
-                  "
+                    })"
                 >
                   Suivant
                 </button>
               </li>
             </ul>
           </nav>
+
         </div>
 
         <!-- Vue Carte -->

@@ -16,6 +16,18 @@ framework:
     #fragments: true
     php_errors:
         log: true
+    http_client:
+        # ← au même niveau que default_options
+        max_host_connections: 10
+        default_options:
+            timeout: 10
+            retry_failed:
+                max_retries: 5           # nombre max de tentatives
+                http_codes:
+                    0:    ['GET', 'HEAD']  # erreurs réseau sur GET/HEAD
+                    429:  true             # toujours retry 429
+                    500:  ['GET', 'HEAD']  #
+                    504: true
 
 when@test:
     framework:
