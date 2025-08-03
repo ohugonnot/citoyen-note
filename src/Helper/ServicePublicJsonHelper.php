@@ -21,6 +21,7 @@ class ServicePublicJsonHelper
             'site_web' => $service->getSiteWeb(),
             'horaires_ouverture' => $service->getHorairesOuverture(),
             'accessibilite_pmr' => $service->isAccessibilitePmr(),
+            'score' => $service->getScore(),
             'statut' => $service->getStatut()->value, // Enum value
             'createdAt' => $service->getCreatedAt()?->format('c'),
             'updatedAt' => $service->getUpdatedAt()?->format('c'),

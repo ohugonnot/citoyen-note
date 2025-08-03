@@ -137,38 +137,38 @@ class GeolocationService
 
         // 3) Traiter les réponses dès qu'elles arrivent, en respectant max_host_connections
         $results = [];
-        foreach ($this->httpClient->stream($pending, 30) as $response => $chunk) {
-            // n’agir que sur le dernier fragment (=> réponse complète)
-            if (! $chunk->isLast()) {
-                continue;
-            }
-            // retrouver la clé d’origine
-            $key = array_search($response, $pending, true);
+        while (!empty($pending)) {
+            foreach ($this->httpClient->stream($pending, 30) as $response => $chunk) {
+                if (! $chunk->isLast()) {
+                    continue;
+                }
 
-            try {
-                $data   = $response->toArray(false);
-                $result = $this->processGeocodeResponse($data);
-             //   echo "\r\nScore ".($result['score']??0) ." -> ".$response->getInfo('url')."\r";
-                $results[$key] = $result;
+                $key = array_search($response, $pending, true);
 
-                // Mettre en cache
-                $cacheKey = $this->generateCacheKey($toFetch[$key]);
-                $this->cache->get($cacheKey, function(ItemInterface $item) use($result) {
-                    $item->expiresAfter(self::CACHE_TTL);
-                    return $result;
-                });
-            } catch (\Throwable $e) {
-                $this->logger->error('Erreur géocodage batch', [
-                    'key'   => $key,
-                    'error' => $e->getMessage(),
-                ]);
-                $results[$key] = null;
+                try {
+                    $data = $response->toArray(false);
+                    $result = $this->processGeocodeResponse($data);
+                    $results[$key] = $result;
+
+                    // mise en cache etc.
+
+                } catch (\Throwable $e) {
+                    $this->logger->error('Erreur géocodage batch', [
+                        'key' => $key,
+                        'error' => $e->getMessage(),
+                    ]);
+                    $results[$key] = null;
+                }
+
+                unset($pending[$key]); // très important !
             }
 
-            // on libère la réponse pour alléger la mémoire
-            unset($pending[$key]);
+            // petit sleep si nécessaire pour éviter boucle infinie
+            usleep(50000); // 50ms
         }
-
+        if (!empty($pending)) {
+            dump($pending);
+        }
         return $cacheHits + $results;
     }
 

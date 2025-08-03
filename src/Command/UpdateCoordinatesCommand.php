@@ -147,7 +147,9 @@ class UpdateCoordinatesCommand extends Command
             $this->io->error('Erreur: ' . $e->getMessage());
             return Command::FAILURE;
         }
-
+        if (!$this->isDryRun) {
+            $this->entityManager->flush();
+        }
         return Command::SUCCESS;
     }
 
@@ -158,7 +160,7 @@ class UpdateCoordinatesCommand extends Command
             ->where('sp.score IS NULL OR sp.score <= 0.8')
             ->select('COUNT(sp.id)');
         if (! $forceAll) {
-            $qb->where('sp.latitude IS NULL OR sp.longitude IS NULL');
+            $qb->andWhere('sp.latitude IS NULL OR sp.longitude IS NULL');
         }
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
@@ -171,7 +173,7 @@ class UpdateCoordinatesCommand extends Command
             ->setMaxResults($limit)
             ->setFirstResult($offset);
         if (!$forceAll) {
-            $qb->where('sp.latitude IS NULL OR sp.longitude IS NULL');
+            $qb->andWhere('sp.latitude IS NULL OR sp.longitude IS NULL');
         }
         return $qb->getQuery()->getResult();
     }

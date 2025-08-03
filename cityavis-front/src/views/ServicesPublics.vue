@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, nextTick, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from 'vue'
 import StarRating from '@/components/StarRating.vue'
 import { useRouter } from 'vue-router'
 import { useServicePublicStore } from '@/stores/servicePublicStore'
@@ -15,7 +15,7 @@ const categorieStore = useCategorieStore()
 
 // Store refs
 const { servicesPublic, isLoading } = storeToRefs(serviceStore)
-const { categoriesOptions, isLoading: categoriesLoading } = storeToRefs(categorieStore) // 🆕
+const { categoriesOptions, isLoading: categoriesLoading } = storeToRefs(categorieStore)
 
 // Computed pour un accès plus facile
 const services = computed(() => {
@@ -40,44 +40,56 @@ const getStoredViewMode = () => {
 }
 
 const startPage = computed(() => {
-  const maxVisible = 5; // Nombre de pages visibles autour de la page courante
-  let start = Math.max(1, pagination.value.page - Math.floor(maxVisible / 2));
-  let end = Math.min(pagination.value.pages, start + maxVisible - 1);
+  const maxVisible = 5
+  let start = Math.max(1, pagination.value.page - Math.floor(maxVisible / 2))
+  let end = Math.min(pagination.value.pages, start + maxVisible - 1)
 
-  // Ajuster le début si on est près de la fin
   if (end - start < maxVisible - 1) {
-    start = Math.max(1, end - maxVisible + 1);
+    start = Math.max(1, end - maxVisible + 1)
   }
 
-  return start;
-});
+  return start
+})
 
 const endPage = computed(() => {
-  const maxVisible = 5;
-  let start = Math.max(1, pagination.value.page - Math.floor(maxVisible / 2));
-  let end = Math.min(pagination.value.pages, start + maxVisible - 1);
+  const maxVisible = 5
+  let start = Math.max(1, pagination.value.page - Math.floor(maxVisible / 2))
+  let end = Math.min(pagination.value.pages, start + maxVisible - 1)
 
-  // Ajuster le début si on est près de la fin
   if (end - start < maxVisible - 1) {
-    start = Math.max(1, end - maxVisible + 1);
+    start = Math.max(1, end - maxVisible + 1)
   }
 
-  return end;
-});
+  return end
+})
 
 const visiblePages = computed(() => {
-  const pages = [];
+  const pages = []
   for (let i = startPage.value; i <= endPage.value; i++) {
-    pages.push(i);
+    pages.push(i)
   }
-  return pages;
-});
+  return pages
+})
 
 // UI State
 const viewMode = ref(getStoredViewMode())
 const map = ref(null)
 const mapContainer = ref(null)
 const markers = ref([])
+
+// Fonction utilitaire pour valider les coordonnées
+const isValidCoordinate = (lat, lng) => {
+  return (
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    !isNaN(lat) &&
+    !isNaN(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  )
+}
 
 // Methods
 const applyFilters = async () => {
@@ -91,7 +103,9 @@ const applyFilters = async () => {
 
     if (viewMode.value === 'map') {
       await nextTick()
-      updateMapMarkers()
+      setTimeout(() => {
+        updateMapMarkers()
+      }, 100)
     }
   } catch (error) {
     console.error("Erreur lors de l'application des filtres:", error)
@@ -103,10 +117,12 @@ watch(
   async () => {
     if (viewMode.value === 'map' && map.value) {
       await nextTick()
-      updateMapMarkers()
+      setTimeout(() => {
+        updateMapMarkers()
+      }, 100)
     }
   },
-  { immediate: false },
+  { immediate: false }
 )
 
 // Debounce la recherche
@@ -123,11 +139,16 @@ const onFiltersChange = () => {
 const onPageChange = async (event) => {
   const page = Math.floor(event.first / event.rows) + 1
   await serviceStore.fetchServicesPublic({
+    search: searchTerm.value,
+    ville: villeFilter.value || [],
+    categorie: categorieFilter.value,
     page,
   })
 
   if (viewMode.value === 'map') {
-    updateMapMarkers()
+    setTimeout(() => {
+      updateMapMarkers()
+    }, 100)
   }
 }
 
@@ -161,67 +182,154 @@ const switchToMap = async () => {
 }
 
 const initMap = () => {
-  if (!mapContainer.value || map.value) return
+  if (!mapContainer.value) return
 
-  map.value = L.map(mapContainer.value).setView([46.603354, 1.888334], 6)
+  // S'assurer qu'il n'y a pas déjà une carte
+  if (map.value) {
+    try {
+      map.value.remove()
+    } catch (e) {
+      console.warn('Erreur lors de la suppression de l\'ancienne carte:', e)
+    }
+    map.value = null
+  }
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '',
-  }).addTo(map.value)
+  // Vérifier que le container a des dimensions
+  const rect = mapContainer.value.getBoundingClientRect()
+  if (rect.width === 0 || rect.height === 0) {
+    console.warn('Container de carte sans dimensions, report de l\'initialisation')
+    setTimeout(() => initMap(), 200)
+    return
+  }
 
-  updateMapMarkers()
+  try {
+    // Désactiver toutes les animations pour éviter les erreurs
+    map.value = L.map(mapContainer.value, {
+      zoomAnimation: false,      // ❌ Désactiver
+      fadeAnimation: true,      // ❌ Désactiver
+      markerZoomAnimation: false, // ❌ Désactiver
+      zoomAnimationThreshold: 1000, // Seuil très élevé
+      preferCanvas: true // Utiliser Canvas au lieu de SVG
+    }).setView([46.603354, 1.888334], 6)
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '',
+      maxZoom: 18,
+      minZoom: 2
+    }).addTo(map.value)
+
+    const bounds = L.latLngBounds(
+      [FRANCE_BOUNDS.south, FRANCE_BOUNDS.west],
+      [FRANCE_BOUNDS.north, FRANCE_BOUNDS.east]
+    )
+    map.value.fitBounds(bounds)
+
+
+    // Attendre que la carte soit complètement chargée
+    map.value.whenReady(() => {
+      setTimeout(() => {
+        updateMapMarkers()
+      }, 100)
+    })
+
+    // Désactiver le zoom molette qui cause souvent l'erreur
+    map.value.scrollWheelZoom.disable()
+
+    // Ajouter des contrôles de zoom manuels
+    setTimeout(() => {
+      if (map.value) {
+        map.value.scrollWheelZoom.enable()
+      }
+    }, 1000)
+
+  } catch (error) {
+    console.error('Erreur lors de l\'initialisation de la carte:', error)
+    map.value = null
+  }
 }
 
 const updateMapMarkers = () => {
   if (!map.value) return
 
-  markers.value.forEach((marker) => map.value.removeLayer(marker))
-  markers.value = []
+  try {
+    // Nettoyer les anciens markers de façon sécurisée
+    markers.value.forEach((marker) => {
+      if (marker && map.value.hasLayer(marker)) {
+        map.value.removeLayer(marker)
+      }
+    })
+    markers.value = []
 
-  if (!services.value || services.value.length === 0) {
-    map.value.setView([46.603354, 1.888334], 6)
-    return
-  }
-
-  services.value.forEach((service) => {
-    if (service?.coordinates?.latitude && service?.coordinates?.longitude) {
-      const customIcon = L.divIcon({
-        html: createCustomMarkerHTML(service),
-        className: 'custom-marker',
-        iconSize: [50, 50],
-        iconAnchor: [25, 25],
-        popupAnchor: [-7, -25],
-      })
-
-      const marker = L.marker([service?.coordinates?.latitude, service?.coordinates?.longitude], {
-        icon: customIcon,
-      }).bindPopup(`
-          <div class="marker-popup">
-            <h6>${service.nom}</h6>
-            <p class="mb-0"><small>${service.adresse}</small></p>
-            <p class="mb-1 mt-0"><small>${service.ville} ${service.code_postal}</small></p>
-            <div class="d-flex align-items-center gap-2 mb-2">
-              <div class="rating-stars">
-                ${generateStarsHTML(service.note_moyenne || 0)}
-              </div>
-              <small class="text-muted">${service.note_moyenne?.toFixed(1) || '0.0'} (${service.nombre_evaluations || 0} avis)</small>
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="window.goToServiceFromMap('${service.slug}')">
-              Voir détails
-            </button>
-          </div>
-        `)
-
-      marker.addTo(map.value)
-      markers.value.push(marker)
+    if (!services.value || services.value.length === 0) {
+      map.value.setView([46.603354, 1.888334], 6)
+      return
     }
-  })
 
-  if (markers.value.length > 0) {
-    const group = new L.featureGroup(markers.value)
-    map.value.fitBounds(group.getBounds().pad(0.1))
-  } else {
-    map.value.setView([46.603354, 1.888334], 6)
+    const validMarkers = []
+
+    services.value.forEach((service) => {
+      const lat = service?.coordinates?.latitude
+      const lng = service?.coordinates?.longitude
+      if (isValidCoordinate(lat, lng) &&
+        (villeFilter.value.length > 0 || categorieFilter.value || isInFranceBounds(lat, lng))
+      ) {
+        try {
+          const customIcon = L.divIcon({
+            html: createCustomMarkerHTML(service),
+            className: 'custom-marker',
+            iconSize: [50, 50],
+            iconAnchor: [25, 25],
+            popupAnchor: [-7, -25],
+          })
+
+          const marker = L.marker([lat, lng], {
+            icon: customIcon,
+          }).bindPopup(`
+            <div class="marker-popup">
+              <h6>${service.nom}</h6>
+              <p class="mb-0"><small>${service.adresse}</small></p>
+              <p class="mb-1 mt-0"><small>${service.ville} ${service.code_postal}</small></p>
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <div class="rating-stars">
+                  ${generateStarsHTML(service.note_moyenne || 0)}
+                </div>
+                <small class="text-muted">${service.note_moyenne?.toFixed(1) || '0.0'} (${service.nombre_evaluations || 0} avis)</small>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="window.goToServiceFromMap('${service.slug}')">
+                Voir détails
+              </button>
+            </div>
+          `)
+
+          marker.addTo(map.value)
+          validMarkers.push(marker)
+        } catch (markerError) {
+          console.warn('Erreur lors de la création du marker:', markerError, service)
+        }
+      }
+    })
+
+    markers.value = validMarkers
+
+    // Ajuster la vue seulement si on a des markers valides
+    if (validMarkers.length > 0) {
+      try {
+        const group = new L.featureGroup(validMarkers)
+        const bounds = group.getBounds()
+
+        // Vérifier que les bounds sont valides
+        if (bounds.isValid()) {
+          map.value.fitBounds(bounds.pad(0.1))
+        }
+      } catch (boundsError) {
+        console.warn('Erreur lors du calcul des bounds:', boundsError)
+        map.value.setView([46.603354, 1.888334], 6)
+      }
+    } else {
+      map.value.setView([46.603354, 1.888334], 6)
+    }
+  } catch (error) {
+    console.error('Erreur dans updateMapMarkers:', error)
   }
 }
 
@@ -289,6 +397,7 @@ window.goToServiceFromMap = (slug) => {
 }
 
 const hasInitiallyLoaded = ref(false)
+
 watch(
   viewMode,
   (newMode) => {
@@ -298,7 +407,7 @@ watch(
       console.warn('Impossible de sauvegarder viewMode:', error)
     }
   },
-  { immediate: true },
+  { immediate: true }
 )
 
 // Recherche des villes
@@ -327,7 +436,7 @@ const searchCities = async (event) => {
 
   try {
     const response = await fetch(
-      `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(query)}&boost=population&limit=10&fields=nom,code,codesPostaux,departement,centre`,
+      `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(query)}&boost=population&limit=10&fields=nom,code,codesPostaux,departement,centre`
     )
 
     const cities = await response.json()
@@ -373,24 +482,105 @@ const onVilleSelect = (event) => {
   onFiltersChange()
 }
 
-// Lifecycle - 🔄 Chargement des catégories ajouté
+// Gestionnaire d'erreur global pour Leaflet - VERSION PLUS AGRESSIVE
+window.addEventListener('error', (event) => {
+  if (event.error && event.error.message &&
+    (event.error.message.includes('_latLngToNewLayerPoint') ||
+      event.error.message.includes('_animateZoom') ||
+      event.error.message.includes('Cannot read properties of null'))) {
+
+    console.warn('Erreur Leaflet interceptée et bloquée:', event.error.message)
+    event.preventDefault() // Empêche l'erreur de remonter
+    event.stopPropagation()
+
+    // Solution drastique: recréer la carte complètement
+    if (map.value && viewMode.value === 'map') {
+      console.warn('Recréation de la carte suite à l\'erreur')
+      setTimeout(() => {
+        try {
+          // Nettoyer complètement
+          markers.value.forEach((marker) => {
+            if (marker && map.value && map.value.hasLayer(marker)) {
+              map.value.removeLayer(marker)
+            }
+          })
+          markers.value = []
+
+          if (map.value) {
+            map.value.remove()
+            map.value = null
+          }
+
+          // Recréer après un délai
+          setTimeout(() => {
+            if (mapContainer.value && viewMode.value === 'map') {
+              initMap()
+            }
+          }, 500)
+
+        } catch (e) {
+          console.warn('Impossible de récréer la carte:', e)
+        }
+      }, 100)
+    }
+
+    return false
+  }
+})
+
+const FRANCE_BOUNDS = {
+  north: 51.2,  // Nord de la métropole
+  south: 42.3,  // Pas en dessous de Marseille
+  west: -4.8,   // Bretagne / Finistère
+  east: 7.5     // Alsace / frontière allemande
+}
+const isInFranceBounds = (lat, lng) => {
+  return (
+    lat >= FRANCE_BOUNDS.south &&
+    lat <= FRANCE_BOUNDS.north &&
+    lng >= FRANCE_BOUNDS.west &&
+    lng <= FRANCE_BOUNDS.east
+  )
+}
+
+
+// Lifecycle
 onMounted(async () => {
   try {
-    // 🆕 Charger les catégories en parallèle
     await Promise.all([
       serviceStore.fetchServicesPublic(),
-      categorieStore.fetchCategoriesActives(), // Charger seulement les actives
+      categorieStore.fetchCategoriesActives(),
     ])
 
     hasInitiallyLoaded.value = true
 
     await nextTick()
-    if (viewMode.value === 'map' && mapContainer.value && !map.value) {
-      initMap()
+    if (viewMode.value === 'map') {
+      switchToMap()
     }
   } catch (error) {
     console.error('Erreur:', error)
     hasInitiallyLoaded.value = true
+  }
+})
+
+// Nettoyage lors de la destruction
+onBeforeUnmount(() => {
+  if (map.value) {
+    try {
+      // Nettoyer les markers
+      markers.value.forEach((marker) => {
+        if (marker && map.value.hasLayer(marker)) {
+          map.value.removeLayer(marker)
+        }
+      })
+
+      // Détruire la carte
+      map.value.remove()
+      map.value = null
+    } catch (error) {
+      console.warn('Erreur lors du nettoyage de la carte:', error)
+    }
   }
 })
 </script>
@@ -454,7 +644,7 @@ onMounted(async () => {
                 </IconField>
               </div>
 
-              <!-- Ville (pareil) -->
+              <!-- Ville -->
               <div class="col-md-4">
                 <IconField icon-position="left">
                   <InputIcon class="bi bi-geo-alt"></InputIcon>
@@ -480,15 +670,15 @@ onMounted(async () => {
                           <small class="text-muted ms-2">({{ slotProps.item.departement }})</small>
                         </div>
                         <small class="text-muted">{{
-                          formatPopulation(slotProps.item.population)
-                        }}</small>
+                            formatPopulation(slotProps.item.population)
+                          }}</small>
                       </div>
                     </template>
                   </AutoComplete>
                 </IconField>
               </div>
 
-              <!-- Catégorie avec filtre et groupes -->
+              <!-- Catégorie -->
               <div class="col-md-4">
                 <Select
                   v-model="categorieFilter"
@@ -603,9 +793,9 @@ onMounted(async () => {
                   class="page-link"
                   :disabled="pagination.page === 1"
                   @click="onPageChange({
-          first: (pagination.page - 2) * pagination.limit,
-          rows: pagination.limit,
-        })"
+                    first: (pagination.page - 2) * pagination.limit,
+                    rows: pagination.limit,
+                  })"
                 >
                   Précédent
                 </button>
@@ -648,30 +838,29 @@ onMounted(async () => {
                 <button
                   class="page-link"
                   @click="onPageChange({
-                      first: (pagination.pages - 1) * pagination.limit,
-                      rows: pagination.limit
-                    })"
-                            >
-                              {{ pagination.pages }}
-                            </button>
-                          </li>
+                    first: (pagination.pages - 1) * pagination.limit,
+                    rows: pagination.limit
+                  })"
+                >
+                  {{ pagination.pages }}
+                </button>
+              </li>
 
-                          <!-- Bouton Suivant -->
-                          <li class="page-item" :class="{ disabled: pagination.page === pagination.pages }">
-                            <button
-                              class="page-link"
-                              :disabled="pagination.page === pagination.pages"
-                              @click="onPageChange({
-                      first: pagination.page * pagination.limit,
-                      rows: pagination.limit,
-                    })"
+              <!-- Bouton Suivant -->
+              <li class="page-item" :class="{ disabled: pagination.page === pagination.pages }">
+                <button
+                  class="page-link"
+                  :disabled="pagination.page === pagination.pages"
+                  @click="onPageChange({
+                    first: pagination.page * pagination.limit,
+                    rows: pagination.limit,
+                  })"
                 >
                   Suivant
                 </button>
               </li>
             </ul>
           </nav>
-
         </div>
 
         <!-- Vue Carte -->
