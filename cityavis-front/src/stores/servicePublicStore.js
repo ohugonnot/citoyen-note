@@ -85,7 +85,6 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
   }
 
   const updateFromResponse = (data) => {
-    if (data.filters) filters.value = { ...filters.value, ...data.filters }
     if (data.pagination) {
       pagination.value = { ...pagination.value, ...data.pagination }
       filters.value.page = data.pagination.page

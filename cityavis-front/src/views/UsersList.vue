@@ -78,7 +78,7 @@
               autocapitalize="off"
               autocomplete="off"
               class="form-control"
-              placeholder="Email, pseudo, nom..."
+              placeholder="Nom, pseudo, mail..."
               @input="debouncedSearch"
             />
             <button
@@ -228,6 +228,7 @@
               column-resize-mode="expand"
               :scrollable="true"
               :template="paginatorTemplate"
+              current-page-report-template="Résultats {first} à {last} sur {totalRecords}"
               :resizable-columns="true"
               :paginator-template="paginatorTemplate"
               :rows-per-page-options="limitOptions"
@@ -830,7 +831,7 @@ const debouncedSearch = debounce(() => {
   // Réinitialiser la page lors d'une nouvelle recherche
   pagination.value.page = 1
   fetchUsers()
-}, 300) // Délai réduit pour une meilleure réactivité
+}, 500) // Délai réduit pour une meilleure réactivité
 
 // Fonction d'actualisation avec feedback visuel
 const refreshData = async () => {

@@ -83,8 +83,39 @@ class ServicePublicRepository extends ServiceEntityRepository
 
         // Recherche
         if (!empty($filterDto->search)) {
-            $qb->andWhere('LOWER(sp.nom) LIKE LOWER(:search) OR LOWER(sp.ville) LIKE LOWER(:search) OR LOWER(categorie.nom) LIKE LOWER(:search)')
-            ->setParameter('search', '%' . strtolower($filterDto->search) . '%');
+            $expr = $qb->expr();
+            $search = strtolower(trim($filterDto->search));
+            $words = preg_split('/\s+/', $search);
+
+            $fullSearchExpr = $expr->orX(
+                $expr->like('LOWER(sp.nom)', ':fullSearch'),
+                $expr->like('LOWER(sp.ville)', ':fullSearch'),
+                $expr->like('LOWER(sp.description)', ':fullSearch'),
+                $expr->like('LOWER(sp.codePostal)', ':fullSearch'),
+                $expr->like('LOWER(categorie.nom)', ':fullSearch')
+            );
+            $qb->setParameter('fullSearch', '%' . $search . '%');
+
+            $allWordsExpr = $expr->andX(); // ET entre les mots
+
+            foreach ($words as $i => $word) {
+                if (strlen($word) < 2) continue;
+                $paramName = "word_$i";
+
+                $wordExpr = $expr->orX(
+                    $expr->like('LOWER(sp.nom)', ":$paramName"),
+                    $expr->like('LOWER(sp.ville)', ":$paramName"),
+                    $expr->like('LOWER(sp.description)', ":$paramName"),
+                    $expr->like('LOWER(sp.codePostal)', ":$paramName"),
+                    $expr->like('LOWER(categorie.nom)', ":$paramName")
+                );
+
+                $allWordsExpr->add($wordExpr);
+                $qb->setParameter($paramName, '%' . $word . '%');
+            }
+
+            // Final : fullSearch OR (every word is found)
+            $qb->andWhere($expr->orX($fullSearchExpr, $allWordsExpr));
         }
 
         // Filtres

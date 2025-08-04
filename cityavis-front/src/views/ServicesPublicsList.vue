@@ -195,6 +195,7 @@
             :sort-order="sorting.order === 'asc' ? 1 : -1"
             :scrollable="true"
             :resizable-columns="true"
+            current-page-report-template="Résultats {first} à {last} sur {totalRecords}"
             column-resize-mode="expand"
             data-key="id"
             responsive-layout="scroll"
@@ -246,7 +247,7 @@
             >
               <template #body="{ data }">
                 <div class="d-flex flex-column">
-                  <span class="fw-medium">{{ data.categorie_nom }}</span>
+                  <span class="fw-medium">{{ data.categorie?.nom }}</span>
                 </div>
               </template>
             </Column>
@@ -514,7 +515,7 @@ const STATUT_OPTIONS = [
   })),
 ]
 
-const DEBOUNCE_DELAY = 300
+const DEBOUNCE_DELAY = 500
 const DEFAULT_SORT = { field: 'nom', order: 'asc' }
 
 // =============================================
