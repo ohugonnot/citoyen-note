@@ -34,6 +34,8 @@ export const useEvaluationStore = defineStore('evaluation', () => {
     UPDATE: 'Erreur lors de la modification',
     DELETE: 'Erreur lors de la suppression',
     BULK_DELETE: 'Erreur lors de la suppression en masse',
+    BULK_VALIDATE: 'Erreur lors de la validation en masse',
+    TOGGLE_VALIDATION: 'Erreur lors du changement de statut de validation',
   }
 
   // =========================
@@ -61,12 +63,6 @@ export const useEvaluationStore = defineStore('evaluation', () => {
     }
   }
 
-  const updateFilters = (data) => {
-    if (data.filters) {
-      filters.value = { ...filters.value, ...data.filters }
-    }
-  }
-
   const updateList = (uuid, updated) => {
     const i = evaluations.value.findIndex((e) => e.uuid === uuid)
     if (i !== -1) evaluations.value[i] = updated
@@ -78,6 +74,15 @@ export const useEvaluationStore = defineStore('evaluation', () => {
 
   const removeFromListBulk = (uuids) => {
     evaluations.value = evaluations.value.filter((e) => !uuids.includes(e.uuid))
+  }
+
+  const updateListBulk = (uuids, updates) => {
+    evaluations.value = evaluations.value.map((evaluation) => {
+      if (uuids.includes(evaluation.uuid)) {
+        return { ...evaluation, ...updates }
+      }
+      return evaluation
+    })
   }
 
   // =========================
@@ -101,7 +106,6 @@ export const useEvaluationStore = defineStore('evaluation', () => {
       const data = await api.getAll({ ...filters.value, ...params })
       evaluations.value = data.data || data
       updatePagination(data)
-      updateFilters(data)
     } catch (err) {
       setError(ERROR_MESSAGES.FETCH, err)
     } finally {
@@ -167,6 +171,42 @@ export const useEvaluationStore = defineStore('evaluation', () => {
     }
   }
 
+  const bulkValidate = async (uuids, estVerifie = true) => {
+    try {
+      const data = await api.bulkValidate(uuids, estVerifie)
+      updateListBulk(uuids, { est_verifie: estVerifie })
+      return data
+    } catch (err) {
+      setError(ERROR_MESSAGES.BULK_VALIDATE, err)
+    }
+  }
+
+  // Dans le store - correction de la fonction toggleValidation
+  const toggleValidation = async (uuid, estVerifie) => {
+    try {
+      const data = await api.toggleValidation(uuid, estVerifie)
+
+      // Mettre à jour avec les données retournées par l'API
+      if (data.evaluation) {
+        updateList(uuid, data.evaluation)
+      } else {
+        // Fallback: trouver l'évaluation par UUID et mettre à jour
+        const evaluation = evaluations.value.find((e) => e.uuid === uuid)
+        if (evaluation) {
+          Object.assign(evaluation, { est_verifie: estVerifie })
+        }
+      }
+
+      if (currentEvaluation.value?.uuid === uuid) {
+        currentEvaluation.value = { ...currentEvaluation.value, est_verifie: estVerifie }
+      }
+
+      return data
+    } catch (err) {
+      setError(ERROR_MESSAGES.TOGGLE_VALIDATION, err)
+    }
+  }
+
   const goToPage = async (page) => {
     filters.value.page = page
     await fetchAll({ page })
@@ -197,6 +237,8 @@ export const useEvaluationStore = defineStore('evaluation', () => {
     update,
     remove,
     bulkDelete,
+    bulkValidate,
+    toggleValidation,
     goToPage,
     resetFilters,
   }

@@ -9,7 +9,8 @@ class EvaluationJsonHelper
     public static function build(Evaluation $evaluation): array
     {
         return [
-            'id' => $evaluation->getUuid(),
+            'id' => $evaluation->getId(),
+            'uuid' => $evaluation->getUuid(),
             'note' => $evaluation->getNote(),
             'commentaire' => $evaluation->getCommentaire(),
             'criteres_specifiques' => $evaluation->getCriteresSpecifiques(),

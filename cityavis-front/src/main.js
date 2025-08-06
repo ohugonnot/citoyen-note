@@ -51,6 +51,7 @@ import InputIcon from 'primevue/inputicon'
 import Textarea from 'primevue/textarea'
 import Tooltip from 'primevue/tooltip'
 import AutoComplete from 'primevue/autocomplete'
+import ToggleButton from 'primevue/togglebutton'
 
 import './assets/globals.css'
 
@@ -81,6 +82,7 @@ const components = {
   InputIcon,
   Textarea,
   AutoComplete,
+  ToggleButton,
 }
 
 ;(async () => {

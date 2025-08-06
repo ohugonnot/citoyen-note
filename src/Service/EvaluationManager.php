@@ -116,7 +116,7 @@ class EvaluationManager
         $qb = $this->repository->createQueryBuilder('e')
             ->where('e.servicePublic = :service')
             ->andWhere('e.statut = :statut')
-          //  ->andWhere('e.estVerifie = true')
+            ->andWhere('e.estVerifie = true')
             ->setParameter('service', $service->getId()->toBinary())
             ->setParameter('statut', StatutEvaluation::ACTIVE)
             ->orderBy('e.createdAt', 'DESC')
@@ -171,5 +171,40 @@ class EvaluationManager
         }
 
         return $repartition;
+    }
+
+    public function bulkValidate(array $uuids, bool $estVerifie = true): int
+    {
+        if (empty($uuids)) {
+            return 0;
+        }
+
+        // Convertir les UUIDs en objets Uuid si nécessaire
+        $uuidObjects = array_map(function($uuid) {
+            return is_string($uuid) ? Uuid::fromString($uuid)->toBinary() : $uuid;
+        }, $uuids);
+
+        $qb = $this->em->createQueryBuilder();
+        $result = $qb->update(Evaluation::class, 'e')
+            ->set('e.estVerifie', ':estVerifie')
+            ->set('e.updatedAt', ':updatedAt')
+            ->where('e.uuid IN (:uuids)')
+            ->setParameter('estVerifie', $estVerifie)
+            ->setParameter('updatedAt', new \DateTimeImmutable())
+            ->setParameter('uuids', $uuidObjects)
+            ->getQuery()
+            ->execute();
+
+        return $result;
+    }
+
+    public function toggleValidation(Evaluation $evaluation, ?bool $newStatus = null): Evaluation
+    {
+        $status = $newStatus ?? !$evaluation->isEstVerifie();
+        
+        $evaluation->setEstVerifie($status);
+        $this->em->flush();
+
+        return $evaluation;
     }
 }

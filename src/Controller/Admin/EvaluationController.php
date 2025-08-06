@@ -146,6 +146,68 @@ class EvaluationController extends AbstractController
         return $this->json(null, 204);
     }
 
+    #[Route('/bulk-validate', name: 'bulk_validate', methods: ['POST'])]
+    public function bulkValidate(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $uuids = $data['ids'] ?? [];
+        $estVerifie = $data['est_verifie'] ?? true; // Par défaut, on valide
+
+        if (!is_array($uuids) || empty($uuids)) {
+            return $this->json(['error' => 'Liste d\'UUIDs vide.'], 400);
+        }
+
+        if (!$this->security->isGranted(self::REQUIRED_ROLE)) {
+            return $this->json(['error' => 'Seul un administrateur peut effectuer une validation multiple.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $updatedCount = $this->manager->bulkValidate($uuids, $estVerifie);
+            
+            return $this->json([
+                'success' => true,
+                'message' => sprintf(
+                    '%d évaluation(s) %s avec succès',
+                    $updatedCount,
+                    $estVerifie ? 'validée(s)' : 'invalidée(s)'
+                ),
+                'updated_count' => $updatedCount
+            ]);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Erreur lors de la validation en masse');
+        }
+    }
+
+    #[Route('/{uuid}/toggle-validation', name: 'toggle_validation', methods: ['PATCH'])]
+    public function toggleValidation(string $uuid, Request $request): JsonResponse
+    {
+        $evaluation = $this->repository->findOneBy(['uuid' => Uuid::fromString($uuid)]);
+        if (!$evaluation) {
+            return $this->json(['error' => 'Évaluation introuvable'], 404);
+        }
+
+        if (!$this->security->isGranted(self::REQUIRED_ROLE)) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $newStatus = $data['est_verifie'] ?? !$evaluation->isEstVerifie();
+
+        try {
+            $evaluation = $this->manager->toggleValidation($evaluation, $newStatus);
+            
+            return $this->json([
+                'success' => true,
+                'evaluation' => EvaluationJsonHelper::build($evaluation),
+                'message' => sprintf(
+                    'Évaluation %s avec succès',
+                    $newStatus ? 'validée' : 'invalidée'
+                )
+            ]);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Erreur lors du changement de statut');
+        }
+    }
 
     #[Route('/{uuid}', name: 'delete', methods: ['DELETE'])]
     public function delete(string $uuid): JsonResponse

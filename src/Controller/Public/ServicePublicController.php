@@ -117,7 +117,7 @@ class ServicePublicController extends AbstractController
                     }
                     break;
                 case 'note':
-                    $qb->leftJoin('s.evaluations', 'e', 'WITH', 'e.statut = :statutEval')
+                    $qb->leftJoin('s.evaluations', 'e', 'WITH', 'e.statut = :statutEval and e.estVerifie = true')
                         ->addSelect('AVG(e.note) as HIDDEN moyenne_note')
                         ->setParameter('statutEval', StatutEvaluation::ACTIVE)
                         ->groupBy('s.id')
@@ -147,7 +147,7 @@ class ServicePublicController extends AbstractController
                 }
 
                 $evaluations = $service->getEvaluations()->filter(
-                    fn($evaluation) => $evaluation->getStatut() === StatutEvaluation::ACTIVE
+                    fn($evaluation) => $evaluation->getStatut() === StatutEvaluation::ACTIVE && $evaluation->isEstVerifie()
                 );
                 $totalNotes = array_reduce(
                     $evaluations->toArray(),

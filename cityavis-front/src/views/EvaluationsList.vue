@@ -71,13 +71,22 @@
       <div class="bg-light p-3 rounded">
         <div class="d-flex justify-content-between align-items-center">
           <span>{{ selectedEvaluations.length }} évaluation(s) sélectionnée(s)</span>
-          <Button
-            label="Supprimer la sélection"
-            icon="pi pi-trash"
-            severity="danger"
-            size="small"
-            @click="confirmBulkDelete"
-          />
+          <div class="d-flex gap-2">
+            <Button
+              label="Valider la sélection"
+              icon="pi pi-check"
+              severity="success"
+              size="small"
+              @click="confirmBulkValidate"
+            />
+            <Button
+              label="Supprimer la sélection"
+              icon="pi pi-trash"
+              severity="danger"
+              size="small"
+              @click="confirmBulkDelete"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -175,7 +184,7 @@
       <!-- Actions -->
       <Column header="Actions" :exportable="false" style="width: 120px">
         <template #body="{ data }">
-          <div class="d-flex gap-1">
+          <div class="d-flex gap-1 align-items-center">
             <Button
               icon="pi pi-pencil"
               severity="info"
@@ -184,14 +193,20 @@
               title="Modifier"
               @click="openEditModal(data)"
             />
-            <Button
-              icon="pi pi-eye"
-              severity="success"
-              text
-              size="small"
-              title="Voir détails"
-              @click="viewEvaluation(data)"
+
+            <!-- Switch pour validation -->
+            <ToggleButton
+              v-model="data.est_verifie"
+              on-icon="pi pi-check"
+              off-icon="pi pi-eye-slash"
+              :on-label="data.est_verifie ? 'Vérifié' : ''"
+              :off-label="data.est_verifie ? '' : 'Non vérifié'"
+              class="p-button-sm"
+              :class="data.est_verifie ? 'p-button-success' : 'p-button-warning'"
+              @change="toggleValidation(data)"
+              @click.stop
             />
+
             <Button
               icon="pi pi-trash"
               severity="danger"
@@ -257,10 +272,41 @@
       </template>
     </Dialog>
 
+    <!-- Modal de validation en masse -->
+    <Dialog v-model:visible="bulkValidateModal.show" header="Validation en masse" modal>
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <i class="pi pi-check-circle text-success" style="font-size: 2rem"></i>
+        <div>
+          <p class="mb-1">
+            Valider <strong>{{ selectedEvaluations.length }}</strong> évaluation(s) ?
+          </p>
+          <p class="text-muted mb-0 small">
+            Cette action marquera toutes les évaluations sélectionnées comme vérifiées.
+          </p>
+        </div>
+      </div>
+      <template #footer>
+        <Button
+          label="Annuler"
+          severity="secondary"
+          outlined
+          @click="bulkValidateModal.show = false"
+        />
+        <Button
+          label="Valider tout"
+          icon="pi pi-check"
+          severity="success"
+          :loading="bulkValidateModal.loading"
+          @click="handleBulkValidate"
+        />
+      </template>
+    </Dialog>
+
     <!-- Modal de commentaire complet -->
     <Dialog
       v-model:visible="commentModal.show"
       :header="`Commentaire de ${commentModal.evaluation?.user?.nom || 'Anonyme'}`"
+      :style="{ 'max-width': '800px' }"
       modal
     >
       <div class="mb-3">
@@ -452,6 +498,11 @@ const bulkDeleteModal = ref({
   loading: false,
 })
 
+const bulkValidateModal = ref({
+  show: false,
+  loading: false,
+})
+
 const commentModal = ref({
   show: false,
   evaluation: null,
@@ -538,7 +589,7 @@ const confirmDelete = (evaluation) => {
 const handleDelete = async () => {
   deleteModal.value.loading = true
   try {
-    await store.remove(deleteModal.value.item.id)
+    await store.remove(deleteModal.value.item.uuid)
     toast.add({
       severity: 'success',
       summary: 'Supprimé',
@@ -567,7 +618,7 @@ const confirmBulkDelete = () => {
 const handleBulkDelete = async () => {
   bulkDeleteModal.value.loading = true
   try {
-    const ids = selectedEvaluations.value.map((e) => e.id)
+    const ids = selectedEvaluations.value.map((e) => e.uuid)
     await store.bulkDelete(ids)
     toast.add({
       severity: 'success',
@@ -590,9 +641,60 @@ const handleBulkDelete = async () => {
   }
 }
 
-const viewEvaluation = (evaluation) => {
-  // TODO: Implémenter la vue détaillée
-  console.log('Voir évaluation:', evaluation)
+// ===========================
+// NOUVELLES MÉTHODES POUR LA VALIDATION
+// ===========================
+const confirmBulkValidate = () => {
+  bulkValidateModal.value.show = true
+}
+
+const handleBulkValidate = async () => {
+  bulkValidateModal.value.loading = true
+  try {
+    const ids = selectedEvaluations.value.map((e) => e.uuid)
+    await store.bulkValidate(ids)
+    toast.add({
+      severity: 'success',
+      summary: 'Validé',
+      detail: `${ids.length} évaluation(s) validée(s)`,
+      life: 5000,
+    })
+    bulkValidateModal.value.show = false
+    selectedEvaluations.value = []
+    handleRefresh()
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Erreur',
+      detail: store.error || 'Erreur lors de la validation en masse',
+      life: 5000,
+    })
+  } finally {
+    bulkValidateModal.value.loading = false
+  }
+}
+
+const toggleValidation = async (evaluation) => {
+  try {
+    await store.toggleValidation(evaluation.uuid, evaluation.est_verifie)
+
+    toast.add({
+      severity: 'success',
+      summary: evaluation.est_verifie ? 'Validé' : 'Invalidé',
+      detail: `Évaluation ${evaluation.est_verifie ? 'validée' : 'invalidée'} avec succès`,
+      life: 3000,
+    })
+  } catch (error) {
+    // Rollback en cas d'erreur
+    evaluation.est_verifie = !evaluation.est_verifie
+
+    toast.add({
+      severity: 'error',
+      summary: 'Erreur',
+      detail: 'Erreur lors du changement de statut',
+      life: 5000,
+    })
+  }
 }
 
 const showCommentModal = (evaluation) => {
@@ -764,7 +866,7 @@ const handleSubmit = async () => {
     const payload = { ...evaluationForm.value }
 
     if (evaluationModal.value.isEdit) {
-      await store.update(store.currentEvaluation.id, payload)
+      await store.update(store.currentEvaluation.uuid, payload)
       toast.add({
         severity: 'success',
         summary: 'Modifié',
@@ -818,5 +920,14 @@ onMounted(() => {
 
 .p-rating .p-rating-item {
   margin-right: 0.1rem;
+}
+
+.p-togglebutton {
+  min-width: auto;
+}
+
+.p-togglebutton.p-button-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
 }
 </style>

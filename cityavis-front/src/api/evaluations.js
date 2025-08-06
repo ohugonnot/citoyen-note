@@ -32,4 +32,19 @@ export default {
       data: { ids: uuids },
     })
   },
+
+  async bulkValidate(uuids, estVerifie = true) {
+    const { data } = await apiClient.post(`${baseUrl}/bulk-validate`, {
+      ids: uuids,
+      est_verifie: estVerifie,
+    })
+    return data
+  },
+
+  async toggleValidation(uuid, estVerifie) {
+    const { data } = await apiClient.patch(`${baseUrl}/${uuid}/toggle-validation`, {
+      est_verifie: estVerifie,
+    })
+    return data
+  },
 }
