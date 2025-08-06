@@ -327,6 +327,7 @@ class ServicePublicController extends AbstractController
     #[Route('/{id}/evaluations', name: 'public_service_evaluations_create', methods: ['POST'])]
     public function createEvaluation(Uuid $id, Request $request): JsonResponse
     {
+        $ip = $request->getClientIp();
         $service = $this->serviceRepository->find($id);
 
         if (!$service) {
@@ -340,8 +341,29 @@ class ServicePublicController extends AbstractController
         }
 
         $user = $this->publicAuthService->getCurrentUser($request);
-        $evaluation = new Evaluation();
+        $recentEvaluation = $this->em->getRepository(Evaluation::class)->createQueryBuilder('e')
+            ->where('e.servicePublic = :service')
+            ->andWhere('e.createdAt > :since')
+            ->setParameter('service', $service->getId()->toBinary())
+            ->setParameter('since', new \DateTimeImmutable('-5 minutes'));
 
+        if ($user) {
+            $recentEvaluation->andWhere('e.user = :user')
+                ->setParameter('user', $user);
+        } else {
+            $recentEvaluation->andWhere('e.ip = :ip')
+                ->setParameter('ip', $ip);
+        }
+
+        if ($recentEvaluation->getQuery()->getOneOrNullResult()) {
+            return $this->json([
+                'error' => 'Vous avez déjà laissé un avis récemment. Veuillez patienter quelques minutes avant de réessayer.'
+            ], 429);
+        }
+        dump($service);
+
+
+        $evaluation = new Evaluation();
         if ($user) {
             $evaluation->setUser($user);
         } else {
@@ -355,6 +377,7 @@ class ServicePublicController extends AbstractController
         $evaluation->setStatut(StatutEvaluation::ACTIVE);
         $evaluation->setServicePublic($service);
         $evaluation->setNote($data['note']);
+        $evaluation->setIp($ip);
         $evaluation->setCommentaire($data['commentaire'] ?? '');
 
         $errors = $this->validator->validate($evaluation);

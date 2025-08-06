@@ -57,6 +57,9 @@ class Evaluation
     #[ORM\Column(type: 'string', nullable: true)]
     private ?string $pseudo = null;
 
+    #[ORM\Column(type: 'string', length: 45, nullable: true)]
+    private ?string $ip = null;
+
     // Relations
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'evaluations')]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
@@ -75,6 +78,17 @@ class Evaluation
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getIp(): ?string
+    {
+        return $this->ip;
+    }
+
+    public function setIp(?string $ip): self
+    {
+        $this->ip = $ip;
+        return $this;
     }
 
     public function getUuid(): Uuid
