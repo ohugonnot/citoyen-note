@@ -688,6 +688,25 @@
       </div>
     </div>
     <Toast />
+    <div
+      v-if="showThankYouModal"
+      class="modal fade show d-block"
+      tabindex="-1"
+      style="background-color: rgba(0, 0, 0, 0.6)"
+    >
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg text-center p-4">
+          <i class="bi bi-check-circle text-success mb-3" style="font-size: 3rem"></i>
+          <h5 class="fw-bold mb-3">Merci pour votre avis !</h5>
+          <p class="text-muted mb-4">
+            Votre avis a été enregistré et sera publié après validation.
+          </p>
+          <button class="btn btn-primary" @click="showThankYouModal = false">
+            <i class="bi bi-house me-1"></i>Retour au service
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -702,12 +721,13 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 const route = useRoute()
-const router = useRouter()
 const toast = useToast()
 const serviceStore = useServicePublicStore()
 const authStore = useAuthStore()
 const { currentService, isLoading } = storeToRefs(serviceStore)
-const { isAuthenticated, user } = storeToRefs(authStore)
+const { isAuthenticated } = storeToRefs(authStore)
+
+const showThankYouModal = ref(false)
 
 const service = computed(() => currentService.value?.service || null)
 const evaluations = computed(() => {
@@ -837,13 +857,7 @@ const submitReview = async () => {
       anonyme: false,
     })
 
-    toast.add({
-      severity: 'success',
-      summary: 'Merci !',
-      detail: 'Votre avis a été publié avec succès',
-      life: 4000,
-    })
-
+    showThankYouModal.value = true
     // Réinitialiser et fermer
     closeReviewModal()
 
@@ -893,13 +907,7 @@ const submitAnonymousReview = async () => {
       nomAnonyme: anonymousName,
     })
 
-    toast.add({
-      severity: 'success',
-      summary: 'Merci !',
-      detail: 'Votre avis anonyme a été publié avec succès',
-      life: 4000,
-    })
-
+    showThankYouModal.value = true
     // Réinitialiser et fermer
     closeReviewModal()
 

@@ -351,6 +351,8 @@ class ServicePublicController extends AbstractController
             $evaluation->setUser(null);
         }
 
+        $evaluation->setEstVerifie(false);
+        $evaluation->setStatut(StatutEvaluation::ACTIVE);
         $evaluation->setServicePublic($service);
         $evaluation->setNote($data['note']);
         $evaluation->setCommentaire($data['commentaire'] ?? '');
