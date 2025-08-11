@@ -40,7 +40,6 @@ class ServicePublicRepository extends ServiceEntityRepository
         $platform = $this->driver(); // "postgresql" | "mysql" | "sqlite" | ...
         return match ($platform) {
             'postgresql' => "LOWER(unaccent($column))",
-            'mysql'      => "LOWER($column) COLLATE utf8mb4_0900_ai_ci",
             default      => "LOWER($column)", // SQLite & autres: fallback (accents non retirés)
         };
     }
