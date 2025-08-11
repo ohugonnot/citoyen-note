@@ -190,7 +190,7 @@ class UpdateCoordinatesCommand extends Command
                 if (empty(trim($adresse))) {
                     $stats['skipped']++;
                     $line = sprintf(
-                        "[%s] Skipped empty adresse – ID %s – %s\n",
+                        "[%s] Skipped empty adresse – ID %s – %s",
                         date('Y-m-d H:i:s'),
                         $service->getId()->toRfc4122(),
                         $adresse,
@@ -209,7 +209,7 @@ class UpdateCoordinatesCommand extends Command
                     } else {
                         $stats['not_found']++;
                         $line = sprintf(
-                            "\n[%s] Not Found – ID %s – %s\n",
+                            "\n[%s] Not Found – ID %s – %s",
                             date('Y-m-d H:i:s'),
                             $service->getId()->toRfc4122(),
                             $adresse
@@ -228,7 +228,7 @@ class UpdateCoordinatesCommand extends Command
             } catch (\Exception $e) {
                 $stats['errors']++;
                 $errorLine = sprintf(
-                    "\n[%s] ERROR – ID %s – %s – %s\n",
+                    "\n[%s] ERROR – ID %s – %s – %s",
                     date('Y-m-d H:i:s'),
                     $service->getId()->toRfc4122(),
                     $adresse,
@@ -294,7 +294,7 @@ class UpdateCoordinatesCommand extends Command
                 file_put_contents(
                     $this->logFilePath,
                     sprintf(
-                        "\n[%s] NOK – ID %s → (api) lat:%.6f != %.6f (bdd), (api) lng:%.6f == %.6f (bdd), score:%.2f\n",
+                        "\n[%s] NOK – ID %s → (api) lat:%.6f != %.6f (bdd), (api) lng:%.6f == %.6f (bdd), score:%.2f",
                         date('Y-m-d H:i:s'),
                         $service->getAdresseFormatee(),
                         $newLat,
@@ -321,12 +321,12 @@ class UpdateCoordinatesCommand extends Command
             $service->setScore($score);
             $this->entityManager->persist($service);
             $this->entityManager->flush();
-            $this->io->text("\nMaj du score ca colle a +-50m".$service->getNom()." : on garde les coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee(). " \n");
+            $this->io->text("\nMaj du score ca colle a +-50m".$service->getNom()." : on garde les coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee());
         }
 
 
         if (!$isDryRun && $distance > 0.05 && (floatval($score) > 0.8 || (empty($oldLat) || empty($oldLng)))) {
-            $this->io->text("\nScore $score -> Distance : ". $distance*1000 . "\nMaj du service ".$service->getNom()." : nouvelle coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee(). " \n");
+            $this->io->text("\nScore $score -> Distance : ". $distance*1000 . "\nMaj du service ".$service->getNom()." : nouvelle coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee());
             $service->setLatitude($newLat);
             $service->setLongitude($newLng);
             $service->setScore($score);
