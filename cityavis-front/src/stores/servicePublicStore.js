@@ -106,9 +106,33 @@ export const useServicePublicStore = defineStore('servicePublic', () => {
   }
 
   const fetchServicesPublic = async (params = {}) => {
-    const result = await api.getAllPublic(params)
-    servicesPublic.value = result
-    return result
+    try {
+      const res = await api.getAllPublic(params)
+
+      const payload = res && res.data && (res.data.data || res.data.pagination) ? res.data : res
+
+      servicesPublic.value = payload ?? {
+        success: true,
+        data: [],
+        pagination: { page: 1, pages: 1, total: 0, limit: 25, hasNext: false, hasPrev: false },
+      }
+      return servicesPublic.value
+    } catch (e) {
+      // Annulations & erreurs réseau → on ne remonte pas d'exception
+      const isCanceled =
+        e?.code === 'ERR_CANCELED' || e?.name === 'CanceledError' || e?.name === 'AbortError'
+      if (!isCanceled) {
+        console.warn('fetchServicesPublic failed:', e)
+      }
+      // Assure un état cohérent pour la vue
+      servicesPublic.value = {
+        success: false,
+        data: [],
+        pagination: { page: 1, pages: 1, total: 0, limit: 25, hasNext: false, hasPrev: false },
+        error: isCanceled ? 'canceled' : (e?.message ?? 'error'),
+      }
+      return servicesPublic.value
+    }
   }
 
   const fetchServiceBySlug = async (slug) => {

@@ -18,18 +18,38 @@ const { servicesPublic, isLoading } = storeToRefs(serviceStore)
 const { categoriesOptions, isLoading: categoriesLoading } = storeToRefs(categorieStore)
 
 // Computed pour un accès plus facile
-const services = computed(() => {
-  return servicesPublic.value?.data || []
-})
-
-const pagination = computed(() => {
-  return servicesPublic.value?.pagination || {}
-})
+const services = computed(() => servicesPublic.value?.data || [])
+const pagination = computed(() => servicesPublic.value?.pagination || {})
 
 // Filters
 const searchTerm = ref('')
 const villeFilter = ref([])
 const categorieFilter = ref(null)
+
+const radiusOptions = [
+  { label: '5 km', value: 5 },
+  { label: '10 km', value: 10 },
+  { label: '20 km', value: 20 },
+  { label: '30 km', value: 30 },
+  { label: '50 km', value: 50 },
+]
+const selectedRadius = ref(5)
+
+const sortOptions = [
+  { label: 'Nom (A→Z)', value: { tri: 'nom', order: 'ASC' } },
+  { label: 'Nom (Z→A)', value: { tri: 'nom', order: 'DESC' } },
+  { label: 'Distance (proche→loin)', value: { tri: 'distance', order: 'ASC' } },
+  { label: 'Note (meilleure→pire)', value: { tri: 'note', order: 'DESC' } },
+]
+const selectedSort = ref(sortOptions[0].value) // nom ASC par défaut
+
+// Feuille cercle de rayon sur la carte
+const radiusCircle = ref(null)
+const villeSuggestions = ref([])
+const villeLoading = ref(false)
+const selectedVille = ref(null)
+const cityCache = new Map()
+const CACHE_DURATION = 30 * 60 * 1000
 
 const getStoredViewMode = () => {
   try {
@@ -91,24 +111,55 @@ const isValidCoordinate = (lat, lng) => {
   )
 }
 
-// Methods
 const applyFilters = async () => {
   try {
-    await serviceStore.fetchServicesPublic({
+    const hasVille = hasCoordsForDistance.value
+    const payload = {
       search: searchTerm.value,
-      ville: villeFilter.value || [],
       categorie: categorieFilter.value,
       page: 1,
-    })
-
-    if (viewMode.value === 'map') {
-      await nextTick()
-      setTimeout(() => {
-        updateMapMarkers()
-      }, 100)
+      tri: selectedSort.value.tri,
+      order: selectedSort.value.order,
+      ...(hasVille ? { ville: buildVilleParam(), rayon: selectedRadius.value } : {}), // ✅
     }
+
+    await serviceStore.fetchServicesPublic(payload)
   } catch (error) {
     console.error("Erreur lors de l'application des filtres:", error)
+  }
+}
+
+const getCenterFromVille = () => {
+  const v = buildVilleParam()
+  if (v && isValidCoordinate(Number(v.latitude), Number(v.longitude))) {
+    return [Number(v.latitude), Number(v.longitude)]
+  }
+  return null
+}
+
+const updateRadiusCircle = (fit = false) => {
+  console.log('updateRadiusCircle')
+  if (!map.value) return
+  const center = getCenterFromVille()
+  if (radiusCircle.value && map.value.hasLayer(radiusCircle.value)) {
+    map.value.removeLayer(radiusCircle.value)
+  }
+  radiusCircle.value = null
+  if (!center || !selectedRadius.value) return
+
+  radiusCircle.value = L.circle(center, {
+    radius: selectedRadius.value * 1000,
+    color: '#0d6efd',
+    weight: 1,
+    fillColor: '#0d6efd',
+    fillOpacity: 0.08,
+  }).addTo(map.value)
+
+  if (fit) {
+    try {
+      const b = radiusCircle.value.getBounds()
+      if (b.isValid()) map.value.fitBounds(b.pad(0.2))
+    } catch {}
   }
 }
 
@@ -119,14 +170,19 @@ watch(
       await nextTick()
       setTimeout(() => {
         updateMapMarkers()
+        if (hasCoordsForDistance.value) {
+          updateRadiusCircle(true)
+        } else {
+          clearRadiusCircle()
+        }
       }, 100)
     }
   },
-  { immediate: false }
+  { immediate: false },
 )
 
 // Debounce la recherche
-const debouncedSearch = debounce(applyFilters, 500)
+const debouncedSearch = debounce(() => applyFilters().catch(() => {}), 500)
 
 const onSearchChange = () => {
   debouncedSearch()
@@ -138,16 +194,22 @@ const onFiltersChange = () => {
 
 const onPageChange = async (event) => {
   const page = Math.floor(event.first / event.rows) + 1
-  await serviceStore.fetchServicesPublic({
+  const hasVille = hasCoordsForDistance.value
+  const payload = {
     search: searchTerm.value,
-    ville: villeFilter.value || [],
     categorie: categorieFilter.value,
     page,
-  })
+    tri: selectedSort.value.tri,
+    order: selectedSort.value.order,
+    ...(hasVille ? { ville: buildVilleParam(), rayon: selectedRadius.value } : {}), // ✅
+  }
+
+  await serviceStore.fetchServicesPublic(payload)
 
   if (viewMode.value === 'map') {
     setTimeout(() => {
       updateMapMarkers()
+      if (!hasVille) clearRadiusCircle()
     }, 100)
   }
 }
@@ -177,9 +239,23 @@ const switchToMap = async () => {
     setTimeout(() => {
       map.value.invalidateSize()
       updateMapMarkers()
+      if (!hasCoordsForDistance.value) clearRadiusCircle()
     }, 100)
   }
 }
+
+watch(selectedRadius, () => {
+  applyFilters().catch(() => {})
+})
+
+watch(selectedVille, () => {
+  applyFilters().catch(() => {})
+  if (viewMode.value === 'map') {
+    if (hasCoordsForDistance.value)
+      updateRadiusCircle(false) // <= PAS de fit ici
+    else clearRadiusCircle()
+  }
+})
 
 const initMap = () => {
   if (!mapContainer.value) return
@@ -189,7 +265,7 @@ const initMap = () => {
     try {
       map.value.remove()
     } catch (e) {
-      console.warn('Erreur lors de la suppression de l\'ancienne carte:', e)
+      console.warn("Erreur lors de la suppression de l'ancienne carte:", e)
     }
     map.value = null
   }
@@ -197,7 +273,7 @@ const initMap = () => {
   // Vérifier que le container a des dimensions
   const rect = mapContainer.value.getBoundingClientRect()
   if (rect.width === 0 || rect.height === 0) {
-    console.warn('Container de carte sans dimensions, report de l\'initialisation')
+    console.warn("Container de carte sans dimensions, report de l'initialisation")
     setTimeout(() => initMap(), 200)
     return
   }
@@ -205,30 +281,31 @@ const initMap = () => {
   try {
     // Désactiver toutes les animations pour éviter les erreurs
     map.value = L.map(mapContainer.value, {
-      zoomAnimation: false,      // ❌ Désactiver
-      fadeAnimation: true,      // ❌ Désactiver
+      zoomAnimation: false, // ❌ Désactiver
+      fadeAnimation: true, // ❌ Désactiver
       markerZoomAnimation: false, // ❌ Désactiver
       zoomAnimationThreshold: 1000, // Seuil très élevé
-      preferCanvas: true // Utiliser Canvas au lieu de SVG
+      preferCanvas: true, // Utiliser Canvas au lieu de SVG
     }).setView([46.603354, 1.888334], 6)
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '',
       maxZoom: 18,
-      minZoom: 2
+      minZoom: 2,
     }).addTo(map.value)
 
     const bounds = L.latLngBounds(
       [FRANCE_BOUNDS.south, FRANCE_BOUNDS.west],
-      [FRANCE_BOUNDS.north, FRANCE_BOUNDS.east]
+      [FRANCE_BOUNDS.north, FRANCE_BOUNDS.east],
     )
     map.value.fitBounds(bounds)
-
 
     // Attendre que la carte soit complètement chargée
     map.value.whenReady(() => {
       setTimeout(() => {
         updateMapMarkers()
+        if (hasCoordsForDistance.value) updateRadiusCircle(true)
+        else clearRadiusCircle()
       }, 100)
     })
 
@@ -241,14 +318,14 @@ const initMap = () => {
         map.value.scrollWheelZoom.enable()
       }
     }, 1000)
-
   } catch (error) {
-    console.error('Erreur lors de l\'initialisation de la carte:', error)
+    console.error("Erreur lors de l'initialisation de la carte:", error)
     map.value = null
   }
 }
 
 const updateMapMarkers = () => {
+  console.log('updateMapMarkers')
   if (!map.value) return
 
   try {
@@ -270,8 +347,9 @@ const updateMapMarkers = () => {
     services.value.forEach((service) => {
       const lat = service?.coordinates?.latitude
       const lng = service?.coordinates?.longitude
-      if (isValidCoordinate(lat, lng) &&
-        (villeFilter.value.length > 0 || categorieFilter.value || isInFranceBounds(lat, lng))
+      if (
+        isValidCoordinate(lat, lng) &&
+        (selectedVille.value || categorieFilter.value || isInFranceBounds(lat, lng))
       ) {
         try {
           const customIcon = L.divIcon({
@@ -312,20 +390,17 @@ const updateMapMarkers = () => {
     markers.value = validMarkers
 
     // Ajuster la vue seulement si on a des markers valides
-    if (validMarkers.length > 0) {
+    if (!hasCoordsForDistance.value && validMarkers.length > 0) {
       try {
         const group = new L.featureGroup(validMarkers)
         const bounds = group.getBounds()
-
-        // Vérifier que les bounds sont valides
-        if (bounds.isValid()) {
-          map.value.fitBounds(bounds.pad(0.1))
-        }
+        if (bounds.isValid()) map.value.fitBounds(bounds.pad(0.1))
       } catch (boundsError) {
         console.warn('Erreur lors du calcul des bounds:', boundsError)
         map.value.setView([46.603354, 1.888334], 6)
       }
-    } else {
+    } else if (!hasCoordsForDistance.value && validMarkers.length === 0) {
+      // seulement si pas de ville ET pas de markers
       map.value.setView([46.603354, 1.888334], 6)
     }
   } catch (error) {
@@ -407,15 +482,8 @@ watch(
       console.warn('Impossible de sauvegarder viewMode:', error)
     }
   },
-  { immediate: true }
+  { immediate: true },
 )
-
-// Recherche des villes
-const villeSuggestions = ref([])
-const villeLoading = ref(false)
-const selectedVille = ref(null)
-const cityCache = new Map()
-const CACHE_DURATION = 30 * 60 * 1000
 
 const searchCities = async (event) => {
   const query = event.query.toLowerCase()
@@ -436,7 +504,7 @@ const searchCities = async (event) => {
 
   try {
     const response = await fetch(
-      `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(query)}&boost=population&limit=10&fields=nom,code,codesPostaux,departement,centre`
+      `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(query)}&boost=population&limit=10&fields=nom,code,codesPostaux,departement,centre`,
     )
 
     const cities = await response.json()
@@ -469,7 +537,6 @@ const searchCities = async (event) => {
 const onVilleClear = () => {
   selectedVille.value = null
   villeFilter.value = []
-  onFiltersChange()
 }
 
 const formatPopulation = (pop) => {
@@ -479,23 +546,24 @@ const formatPopulation = (pop) => {
 
 const onVilleSelect = (event) => {
   selectedVille.value = event.value
-  onFiltersChange()
 }
 
 // Gestionnaire d'erreur global pour Leaflet - VERSION PLUS AGRESSIVE
 window.addEventListener('error', (event) => {
-  if (event.error && event.error.message &&
+  if (
+    event.error &&
+    event.error.message &&
     (event.error.message.includes('_latLngToNewLayerPoint') ||
       event.error.message.includes('_animateZoom') ||
-      event.error.message.includes('Cannot read properties of null'))) {
-
+      event.error.message.includes('Cannot read properties of null'))
+  ) {
     console.warn('Erreur Leaflet interceptée et bloquée:', event.error.message)
     event.preventDefault() // Empêche l'erreur de remonter
     event.stopPropagation()
 
     // Solution drastique: recréer la carte complètement
     if (map.value && viewMode.value === 'map') {
-      console.warn('Recréation de la carte suite à l\'erreur')
+      console.warn("Recréation de la carte suite à l'erreur")
       setTimeout(() => {
         try {
           // Nettoyer complètement
@@ -517,7 +585,6 @@ window.addEventListener('error', (event) => {
               initMap()
             }
           }, 500)
-
         } catch (e) {
           console.warn('Impossible de récréer la carte:', e)
         }
@@ -529,10 +596,10 @@ window.addEventListener('error', (event) => {
 })
 
 const FRANCE_BOUNDS = {
-  north: 51.2,  // Nord de la métropole
-  south: 42.3,  // Pas en dessous de Marseille
-  west: -4.8,   // Bretagne / Finistère
-  east: 7.5     // Alsace / frontière allemande
+  north: 51.2, // Nord de la métropole
+  south: 42.3, // Pas en dessous de Marseille
+  west: -4.8, // Bretagne / Finistère
+  east: 7.5, // Alsace / frontière allemande
 }
 const isInFranceBounds = (lat, lng) => {
   return (
@@ -543,14 +610,35 @@ const isInFranceBounds = (lat, lng) => {
   )
 }
 
+const buildVilleParam = () => {
+  const v = selectedVille.value
+  if (v && isValidCoordinate(Number(v?.latitude), Number(v?.longitude))) {
+    return {
+      nom: v.nom ?? '',
+      codePostal: v.codePostal ?? '',
+      latitude: Number(v.latitude),
+      longitude: Number(v.longitude),
+    }
+  }
+  return null
+}
+
+const hasCoordsForDistance = computed(() => {
+  const v = buildVilleParam()
+  return !!(v && isValidCoordinate(v.latitude, v.longitude))
+})
+
+const clearRadiusCircle = () => {
+  if (map.value && radiusCircle.value && map.value.hasLayer(radiusCircle.value)) {
+    map.value.removeLayer(radiusCircle.value)
+  }
+  radiusCircle.value = null
+}
 
 // Lifecycle
 onMounted(async () => {
   try {
-    await Promise.all([
-      serviceStore.fetchServicesPublic(),
-      categorieStore.fetchCategoriesActives(),
-    ])
+    await Promise.all([serviceStore.fetchServicesPublic(), categorieStore.fetchCategoriesActives()])
 
     hasInitiallyLoaded.value = true
 
@@ -670,8 +758,8 @@ onBeforeUnmount(() => {
                           <small class="text-muted ms-2">({{ slotProps.item.departement }})</small>
                         </div>
                         <small class="text-muted">{{
-                            formatPopulation(slotProps.item.population)
-                          }}</small>
+                          formatPopulation(slotProps.item.population)
+                        }}</small>
                       </div>
                     </template>
                   </AutoComplete>
@@ -700,6 +788,52 @@ onBeforeUnmount(() => {
                     </div>
                   </template>
                 </Select>
+              </div>
+            </div>
+            <div class="row g-3 mt-1">
+              <!-- Rayon -->
+              <div v-if="hasCoordsForDistance" class="col-md-4">
+                <Select
+                  v-model="selectedRadius"
+                  :options="radiusOptions"
+                  option-label="label"
+                  option-value="value"
+                  placeholder="Rayon autour de la ville"
+                  class="w-100"
+                />
+              </div>
+
+              <!-- Tri -->
+              <div class="col-md-4">
+                <Select
+                  v-model="selectedSort"
+                  :options="sortOptions"
+                  option-label="label"
+                  option-value="value"
+                  class="w-100"
+                  :disabled="!hasCoordsForDistance && selectedSort?.tri === 'distance'"
+                  placeholder="Trier par"
+                  @change="onFiltersChange"
+                />
+              </div>
+
+              <!-- (Optionnel) bouton reset -->
+              <div class="col-md-4 d-flex align-items-center">
+                <button
+                  class="btn btn-outline-secondary w-100"
+                  @click="
+                    () => {
+                      selectedRadius = 5
+                      selectedSort = sortOptions[0].value
+                      onVilleClear()
+                      searchTerm = ''
+                      categorieFilter = null
+                      applyFilters().catch(() => {})
+                    }
+                  "
+                >
+                  Réinitialiser les filtres
+                </button>
               </div>
             </div>
           </div>
@@ -792,10 +926,12 @@ onBeforeUnmount(() => {
                 <button
                   class="page-link"
                   :disabled="pagination.page === 1"
-                  @click="onPageChange({
-                    first: (pagination.page - 2) * pagination.limit,
-                    rows: pagination.limit,
-                  })"
+                  @click="
+                    onPageChange({
+                      first: (pagination.page - 2) * pagination.limit,
+                      rows: pagination.limit,
+                    })
+                  "
                 >
                   Précédent
                 </button>
@@ -803,7 +939,10 @@ onBeforeUnmount(() => {
 
               <!-- Première page si on n'est pas au début -->
               <li v-if="startPage > 1" class="page-item">
-                <button class="page-link" @click="onPageChange({ first: 0, rows: pagination.limit })">
+                <button
+                  class="page-link"
+                  @click="onPageChange({ first: 0, rows: pagination.limit })"
+                >
                   1
                 </button>
               </li>
@@ -822,7 +961,9 @@ onBeforeUnmount(() => {
               >
                 <button
                   class="page-link"
-                  @click="onPageChange({ first: (page - 1) * pagination.limit, rows: pagination.limit })"
+                  @click="
+                    onPageChange({ first: (page - 1) * pagination.limit, rows: pagination.limit })
+                  "
                 >
                   {{ page }}
                 </button>
@@ -837,10 +978,12 @@ onBeforeUnmount(() => {
               <li v-if="endPage < pagination.pages" class="page-item">
                 <button
                   class="page-link"
-                  @click="onPageChange({
-                    first: (pagination.pages - 1) * pagination.limit,
-                    rows: pagination.limit
-                  })"
+                  @click="
+                    onPageChange({
+                      first: (pagination.pages - 1) * pagination.limit,
+                      rows: pagination.limit,
+                    })
+                  "
                 >
                   {{ pagination.pages }}
                 </button>
@@ -851,10 +994,12 @@ onBeforeUnmount(() => {
                 <button
                   class="page-link"
                   :disabled="pagination.page === pagination.pages"
-                  @click="onPageChange({
-                    first: pagination.page * pagination.limit,
-                    rows: pagination.limit,
-                  })"
+                  @click="
+                    onPageChange({
+                      first: pagination.page * pagination.limit,
+                      rows: pagination.limit,
+                    })
+                  "
                 >
                   Suivant
                 </button>
