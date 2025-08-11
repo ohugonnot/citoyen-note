@@ -206,19 +206,10 @@ class UpdateCoordinatesCommand extends Command
                             $this->isDryRun
                         );
                         $stats['updated']++;
-                        $line = sprintf(
-                            "[%s] Updated – ID %s – %s → lat:%.6f, lng:%.6f, score:%.2f\n",
-                            date('Y-m-d H:i:s'),
-                            $service->getId()->toRfc4122(),
-                            $adresse,
-                            $result['lat'],
-                            $result['lng'],
-                            $result['score'] ?? 0
-                        ); 
                     } else {
                         $stats['not_found']++;
                         $line = sprintf(
-                            "[%s] Not Found – ID %s – %s\n",
+                            "\n[%s] Not Found – ID %s – %s\n",
                             date('Y-m-d H:i:s'),
                             $service->getId()->toRfc4122(),
                             $adresse
@@ -231,12 +222,13 @@ class UpdateCoordinatesCommand extends Command
                             $line,
                             FILE_APPEND
                         );
+                        $this->io->text($line);
                     }
                 }
             } catch (\Exception $e) {
                 $stats['errors']++;
                 $errorLine = sprintf(
-                    "[%s] ERROR – ID %s – %s – %s\n",
+                    "\n[%s] ERROR – ID %s – %s – %s\n",
                     date('Y-m-d H:i:s'),
                     $service->getId()->toRfc4122(),
                     $adresse,
@@ -249,6 +241,7 @@ class UpdateCoordinatesCommand extends Command
                         FILE_APPEND
                     );
                 }
+                $this->io->text($line);
                 $this->logger->error('Erreur lors du géocodage', [
                     'service_id' => $service->getId()->toRfc4122(),
                     'adresse'    => $adresse,
@@ -301,7 +294,7 @@ class UpdateCoordinatesCommand extends Command
                 file_put_contents(
                     $this->logFilePath,
                     sprintf(
-                        "[%s] NOK       – ID %s → (api) lat:%.6f != %.6f (bdd), (api) lng:%.6f == %.6f (bdd), score:%.2f\n",
+                        "\n[%s] NOK – ID %s → (api) lat:%.6f != %.6f (bdd), (api) lng:%.6f == %.6f (bdd), score:%.2f\n",
                         date('Y-m-d H:i:s'),
                         $service->getAdresseFormatee(),
                         $newLat,
@@ -328,13 +321,12 @@ class UpdateCoordinatesCommand extends Command
             $service->setScore($score);
             $this->entityManager->persist($service);
             $this->entityManager->flush();
-            echo "Maj du score ca colle ".$service->getNom()." : on garde les coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee(). " \n";
+            $this->io->text("\nMaj du score ca colle a +-50m".$service->getNom()." : on garde les coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee(). " \n");
         }
 
 
         if (!$isDryRun && $distance > 0.05 && (floatval($score) > 0.8 || (empty($oldLat) || empty($oldLng)))) {
-            echo "Score $score -> Distance : ". $distance*1000 . "\n";
-            echo "Maj du service ".$service->getNom()." : nouvelle coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee(). " \n";
+            $this->io->text("\nScore $score -> Distance : ". $distance*1000 . "\nMaj du service ".$service->getNom()." : nouvelle coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee(). " \n");
             $service->setLatitude($newLat);
             $service->setLongitude($newLng);
             $service->setScore($score);
