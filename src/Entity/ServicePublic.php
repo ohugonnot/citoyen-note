@@ -81,9 +81,9 @@ class ServicePublic
         return $this->idGouv ?? $this->idExterne;
     }
 
-    #[ORM\Column(length: 200)]
+    #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
-    #[Assert\Length(max: 200)]
+    #[Assert\Length(max: 255)]
     private string $nom;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
@@ -93,7 +93,7 @@ class ServicePublic
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $adresseComplete = null;
 
-    #[ORM\Column(length: 5)]
+    #[ORM\Column(length: 16)]
     #[Assert\NotBlank]
     #[Assert\Regex(pattern: '/^\d{5}$/', message: 'Le code postal doit contenir exactement 5 chiffres')]
     private string $codePostal;
@@ -111,7 +111,7 @@ class ServicePublic
     #[Assert\Range(min: -180, max: 180)]
     private ?string  $longitude = null;
 
-    #[ORM\Column(length: 20, nullable: true)]
+    #[ORM\Column(length: 250, nullable: true)]
     #[Assert\Regex(pattern: '/^(?:\+33|0)[1-9](?:[0-9]{8})$/', message: 'Format de téléphone invalide')]
     private ?string $telephone = null;
 
@@ -119,7 +119,7 @@ class ServicePublic
     #[Assert\Email]
     private ?string $email = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
     #[Assert\Url]
     private ?string $siteWeb = null;
 
