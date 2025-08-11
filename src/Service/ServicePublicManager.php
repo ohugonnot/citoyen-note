@@ -229,6 +229,9 @@ private function hydraterStatut(ServicePublic $service, array $donnees): void
 
 private function hydraterCoordonnees(ServicePublic $service, array $donnees): void
 {
+    if ($service->getLatitude() && $service->getLongitude() && $service->getScore() > 0.8) {
+        return;
+    }
     if (isset($donnees['latitude']) && is_numeric($donnees['latitude'])) {
         $service->setLatitude((float) $donnees['latitude']);
     }

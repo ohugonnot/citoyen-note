@@ -317,12 +317,12 @@ class UpdateCoordinatesCommand extends Command
             $service->setScore($score);
             $this->entityManager->persist($service);
             $this->entityManager->flush();
-            $this->io->text("\nMaj du score ca colle a +-50m".$service->getNom()." : on garde les coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee());
+            $this->io->text("- Maj du score ca colle a +-50m".$service->getNom()." : on garde les coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee());
         }
 
 
         if (!$isDryRun && $distance > 0.05 && (floatval($score) > 0.8 || (empty($oldLat) || empty($oldLng)))) {
-            $this->io->text("\nScore $score -> Distance : ". $distance*1000 . "\nMaj du service ".$service->getNom()." : nouvelle coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee());
+            $this->io->text("- Maj du service ".$service->getNom()." : nouvelle coordonnées $newLat/$newLng  vs $oldLat/$oldLng score $score ".$service->getAdresseFormatee());
             $service->setLatitude($newLat);
             $service->setLongitude($newLng);
             $service->setScore($score);
