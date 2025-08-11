@@ -359,9 +359,7 @@
                                   ></i>
                                 </div>
                               </div>
-                              <small class="text-muted">
-                                {{ formatDate(avis.createdAt) }}
-                              </small>
+                              <small class="text-muted">{{ formatDate(avis.createdAt) }}</small>
                             </div>
                             <p v-if="avis.commentaire" class="mb-0 text-muted small">
                               {{ avis.commentaire }}
@@ -470,18 +468,21 @@
                     :key="jour.nom"
                     class="d-flex justify-content-between align-items-center py-2 px-3 rounded"
                     :class="{
-                      'bg-light': !jour.horaire.ouvert && !isToday(jour.nom),
+                      // Aujourd’hui et ouvert maintenant => VERT
                       'bg-success bg-opacity-10 border border-success':
-                        jour.horaire.ouvert && isToday(jour.nom),
+                        jour.isToday && jour.isOpenNow,
+                      // Aujourd’hui mais fermé maintenant (midi, soir, journée finie) => ROUGE
                       'bg-danger bg-opacity-10 border border-danger':
-                        !jour.horaire.ouvert && isToday(jour.nom),
-                      border: isToday(jour.nom),
+                        jour.isToday && !jour.isOpenNow,
+                      // Autres jours sans créneaux => neutre
+                      'bg-light': !jour.isToday && !jour.hasSlots,
+                      border: jour.isToday,
                     }"
                   >
                     <div class="fw-medium small">
                       {{ formatDayName(jour.nom) }}
                       <span
-                        v-if="isToday(jour.nom)"
+                        v-if="jour.isToday"
                         class="badge bg-primary ms-1"
                         style="font-size: 0.65rem"
                       >
@@ -489,19 +490,27 @@
                       </span>
                     </div>
                     <div class="text-end">
-                      <span v-if="!jour.horaire.ouvert" class="text-muted small fw-medium"
-                        >Fermé</span
-                      >
-                      <div v-else>
+                      <span v-if="!jour.hasSlots" class="text-muted small fw-medium">Fermé</span>
+
+                      <template v-else>
+                        <!-- créneaux -->
                         <div
                           v-for="creneau in jour.horaire.creneaux"
                           :key="creneau.ouverture"
                           class="fw-medium small"
-                          :class="isToday(jour.nom) ? 'text-success' : 'text-dark'"
+                          :class="jour.isToday && jour.isOpenNow ? 'text-success' : 'text-dark'"
                         >
                           {{ creneau.ouverture }} - {{ creneau.fermeture }}
                         </div>
-                      </div>
+
+                        <!-- indication de réouverture -->
+                        <small
+                          v-if="jour.isToday && !jour.isOpenNow && jour.nextOpenToday"
+                          class="text-muted d-block mt-1"
+                        >
+                          Ouvre à {{ jour.nextOpenToday }}
+                        </small>
+                      </template>
                     </div>
                   </div>
                 </div>
@@ -712,7 +721,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useServicePublicStore } from '@/stores/servicePublicStore'
 import { useAuthStore } from '@/stores/authStore'
 import { storeToRefs } from 'pinia'
@@ -729,13 +738,11 @@ const { isAuthenticated } = storeToRefs(authStore)
 
 const showThankYouModal = ref(false)
 
+/* -------------------- Données service & avis -------------------- */
 const service = computed(() => currentService.value?.service || null)
 const evaluations = computed(() => {
   const raw = currentService.value?.evaluations
-  if (!raw) {
-    return { moyenne: 0, total: 0, repartition: [], liste: [] }
-  }
-
+  if (!raw) return { moyenne: 0, total: 0, repartition: [], liste: [] }
   return {
     moyenne: raw.moyenne,
     total: raw.total,
@@ -744,36 +751,111 @@ const evaluations = computed(() => {
   }
 })
 
-// État actuel du service (ouvert/fermé)
-const currentStatus = computed(() => {
+/* -------------------- Helpers horaires -------------------- */
+const DAY_ORDER = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
+const DAY_LABEL = {
+  lundi: 'Lundi',
+  mardi: 'Mardi',
+  mercredi: 'Mercredi',
+  jeudi: 'Jeudi',
+  vendredi: 'Vendredi',
+  samedi: 'Samedi',
+  dimanche: 'Dimanche',
+}
+
+const pad = (n) => String(n).padStart(2, '0')
+const timeToMin = (hhmm) => {
+  if (!hhmm || !/^\d{2}:\d{2}$/.test(hhmm)) return NaN
+  const [h, m] = hhmm.split(':').map(Number)
+  return h * 60 + m
+}
+const minToTime = (m) => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`
+const jsDayToIndexLundi0 = (d /*0=dimanche..6=samedi*/) => (d + 6) % 7 // lundi=0
+
+const getDaySchedule = (dayName) => {
+  const src = service.value?.horaires_ouverture?.[dayName]
+  if (!src || !src.ouvert || !Array.isArray(src.creneaux)) return []
+  const slots = []
+  for (const c of src.creneaux) {
+    let open = timeToMin(c.ouverture)
+    let close = timeToMin(c.fermeture)
+    if (Number.isNaN(open) || Number.isNaN(close)) continue
+    if (close <= open) close += 1440 // passe minuit
+    slots.push({ open, close, ouverture: c.ouverture, fermeture: c.fermeture })
+  }
+  return slots.sort((a, b) => a.open - b.open)
+}
+
+/** Créneau en cours (prend en compte hier->après minuit) */
+const getCurrentSlot = () => {
   if (!service.value?.horaires_ouverture) return null
 
   const now = new Date()
-  const currentDay = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][
-    now.getDay()
-  ]
-  const currentTime = now.getHours() * 100 + now.getMinutes()
+  const t = now.getHours() * 60 + now.getMinutes()
+  const todayIdx = jsDayToIndexLundi0(now.getDay())
+  const todayName = DAY_ORDER[todayIdx]
+  const yesterdayIdx = (todayIdx + 6) % 7
+  const yesterdayName = DAY_ORDER[yesterdayIdx]
 
-  const todaySchedule = service.value.horaires_ouverture[currentDay]
-  if (!todaySchedule || !todaySchedule.ouvert) {
-    return { isOpen: false, nextChange: findNextOpening() }
+  // Créneaux du jour
+  for (const s of getDaySchedule(todayName)) {
+    if (t >= s.open && t < s.close) return { ...s, dayName: todayName, dayOffset: 0 }
   }
 
-  // Vérifier si actuellement ouvert
-  const isCurrentlyOpen = todaySchedule.creneaux.some((creneau) => {
-    const [openHour, openMin] = creneau.ouverture.split(':').map(Number)
-    const [closeHour, closeMin] = creneau.fermeture.split(':').map(Number)
-    const openTime = openHour * 100 + openMin
-    const closeTime = closeHour * 100 + closeMin
-    return currentTime >= openTime && currentTime <= closeTime
-  })
-
-  return {
-    isOpen: isCurrentlyOpen,
-    nextChange: isCurrentlyOpen ? findNextClosing() : findNextOpening(),
+  // Créneau d'hier qui dépasse minuit (ex: 22:00-02:00)
+  for (const s of getDaySchedule(yesterdayName)) {
+    if (s.close > 1440) {
+      const nowAsYesterday = t + 1440 // minutes "relatives" à hier
+      if (nowAsYesterday >= s.open && nowAsYesterday < s.close) {
+        return { ...s, dayName: yesterdayName, dayOffset: -1 }
+      }
+    }
   }
+  return null
+}
+
+/** "Ouvre à HH:MM" (aujourd’hui) ou "Ouvre demain HH:MM" / "Ouvre Lundi HH:MM" */
+const findNextOpening = () => {
+  if (!service.value?.horaires_ouverture) return null
+
+  const now = new Date()
+  const todayIdx = jsDayToIndexLundi0(now.getDay())
+  const t = now.getHours() * 60 + now.getMinutes()
+
+  for (let offset = 0; offset < 7; offset++) {
+    const idx = (todayIdx + offset) % 7
+    const name = DAY_ORDER[idx]
+    const slots = getDaySchedule(name)
+    if (!slots.length) continue
+
+    if (offset === 0) {
+      // aujourd’hui : prochain créneau encore à venir
+      const nextToday = slots.find((s) => s.open > t)
+      if (nextToday) return `Ouvre à ${minToTime(nextToday.open)}`
+    } else {
+      const first = slots[0]
+      if (offset === 1) return `Ouvre demain ${minToTime(first.open)}`
+      return `Ouvre ${DAY_LABEL[name]} ${minToTime(first.open)}`
+    }
+  }
+  return null
+}
+
+/** "Ferme à HH:MM" si on est ouvert; sinon null */
+const findNextClosing = () => {
+  const slot = getCurrentSlot()
+  return slot ? `Ferme à ${minToTime(slot.close)}` : null
+}
+
+/* Statut courant pour l’en-tête */
+const currentStatus = computed(() => {
+  if (!service.value?.horaires_ouverture) return null
+  const slot = getCurrentSlot()
+  if (slot) return { isOpen: true, nextChange: findNextClosing() }
+  return { isOpen: false, nextChange: findNextOpening() }
 })
 
+/* -------------------- Leaflet -------------------- */
 const mapContainer = ref(null)
 const map = ref(null)
 const showReviewModal = ref(false)
@@ -781,16 +863,10 @@ const showLoginRegister = ref(false)
 const hoverRating = ref(0)
 const submittingReview = ref(false)
 const isFavorite = ref(false)
-const newReview = ref({
-  rating: 0,
-  comment: '',
-  anonymousName: '',
-})
+const newReview = ref({ rating: 0, comment: '', anonymousName: '' })
 
-// Computed
-const hasNativeShare = computed(() => {
-  return typeof navigator !== 'undefined' && navigator.share
-})
+/* -------------------- UI helpers -------------------- */
+const hasNativeShare = computed(() => typeof navigator !== 'undefined' && navigator.share)
 
 const loadData = async () => {
   try {
@@ -813,19 +889,13 @@ const loadData = async () => {
   }
 }
 
-// Ouvrir le modal d'avis
 const openReviewModal = () => {
-  // Si pas connecté, proposer directement l'option anonyme
   showReviewModal.value = true
-  if (!isAuthenticated.value) {
-    showLoginRegister.value = true
-  }
-
+  if (!isAuthenticated.value) showLoginRegister.value = true
   newReview.value = { rating: 0, comment: '', anonymousName: '' }
   hoverRating.value = 0
 }
 
-// Soumettre un avis (utilisateur connecté)
 const submitReview = async () => {
   if (newReview.value.rating === 0) {
     toast.add({
@@ -836,7 +906,6 @@ const submitReview = async () => {
     })
     return
   }
-
   if (!isAuthenticated.value) {
     toast.add({
       severity: 'error',
@@ -846,9 +915,7 @@ const submitReview = async () => {
     })
     return
   }
-
   submittingReview.value = true
-
   try {
     await serviceStore.submitEvaluation({
       serviceId: service.value.id,
@@ -856,33 +923,20 @@ const submitReview = async () => {
       commentaire: newReview.value.comment.trim(),
       anonyme: false,
     })
-
     showThankYouModal.value = true
-    // Réinitialiser et fermer
     closeReviewModal()
-
-    // Recharger les données pour afficher le nouvel avis
     await serviceStore.fetchServiceBySlug(route.params.slug)
   } catch (err) {
-    console.error("Erreur lors de l'envoi de l'avis:", err)
-
     const errorMessage =
       err.response?.data?.message ||
       err.response?.data?.error ||
       "Erreur lors de l'envoi de votre avis"
-
-    toast.add({
-      severity: 'error',
-      summary: 'Erreur',
-      detail: errorMessage,
-      life: 5000,
-    })
+    toast.add({ severity: 'error', summary: 'Erreur', detail: errorMessage, life: 5000 })
   } finally {
     submittingReview.value = false
   }
 }
 
-// Soumettre un avis anonyme
 const submitAnonymousReview = async () => {
   if (newReview.value.rating === 0) {
     toast.add({
@@ -893,46 +947,29 @@ const submitAnonymousReview = async () => {
     })
     return
   }
-
-  // Validation du nom anonyme
-  const anonymousName = newReview.value.anonymousName.trim()
   submittingReview.value = true
-
   try {
     await serviceStore.submitEvaluation({
       serviceId: service.value.id,
       note: newReview.value.rating,
       commentaire: newReview.value.comment.trim(),
       anonyme: true,
-      nomAnonyme: anonymousName,
+      nomAnonyme: newReview.value.anonymousName.trim(),
     })
-
     showThankYouModal.value = true
-    // Réinitialiser et fermer
     closeReviewModal()
-
-    // Recharger les données
     await serviceStore.fetchServiceBySlug(route.params.slug)
   } catch (err) {
-    console.error("Erreur lors de l'envoi de l'avis anonyme:", err)
-
     const errorMessage =
       err.response?.data?.message ||
       err.response?.data?.error ||
       "Erreur lors de l'envoi de votre avis"
-
-    toast.add({
-      severity: 'error',
-      summary: 'Erreur',
-      detail: errorMessage,
-      life: 5000,
-    })
+    toast.add({ severity: 'error', summary: 'Erreur', detail: errorMessage, life: 5000 })
   } finally {
     submittingReview.value = false
   }
 }
 
-// Fermer le modal et réinitialiser
 const closeReviewModal = () => {
   showReviewModal.value = false
   showLoginRegister.value = false
@@ -943,13 +980,9 @@ const closeReviewModal = () => {
 const initMap = async () => {
   try {
     if (!service.value?.coordinates || !mapContainer.value) return
-
-    if (map.value) {
-      map.value.remove()
-    }
+    if (map.value) map.value.remove()
 
     const { latitude, longitude } = service.value.coordinates
-
     map.value = L.map(mapContainer.value).setView([latitude, longitude], 15)
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -958,78 +991,78 @@ const initMap = async () => {
     }).addTo(map.value)
 
     const customIcon = L.divIcon({
-      html: `<div class="custom-marker">
-               <i class="bi ${service.value.categorie?.icone}"></i>
-             </div>`,
+      html: `<div class="custom-marker"><i class="bi ${service.value.categorie?.icone}"></i></div>`,
       className: 'custom-marker-container',
       iconSize: [30, 30],
       iconAnchor: [15, 30],
     })
 
-    L.marker([latitude, longitude], {
-      icon: customIcon,
-    }).addTo(map.value)
+    L.marker([latitude, longitude], { icon: customIcon }).addTo(map.value)
   } catch (error) {
     console.error("Erreur lors de l'initialisation de la carte:", error)
   }
 }
 
+/* -------------------- Horaires : liste pour l’affichage -------------------- */
 const joursComplets = computed(() => {
-  const jours = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
-  const horairesExistants = service.value?.horaires_ouverture || {}
+  const jours = DAY_ORDER
+  const now = new Date()
+  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const todayIdx = jsDayToIndexLundi0(now.getDay())
+  const todayName = jours[todayIdx]
 
-  return jours.map((jour) => {
+  const yesterdayName = jours[(todayIdx + 6) % 7]
+  const yesterdaySlots = getDaySchedule(yesterdayName)
+
+  return jours.map((nom) => {
+    const def = service.value?.horaires_ouverture?.[nom] || { ouvert: false, creneaux: [] }
+    const slots = getDaySchedule(nom)
+    const isToday = nom === todayName
+    const hasSlots = slots.length > 0
+
+    // ouvert maintenant si : dans un créneau du jour, OU (si aujourd’hui) dans un créneau d’hier qui dépasse minuit
+    let isOpenNow = false
+    if (isToday) {
+      isOpenNow = slots.some((s) => nowMin >= s.open && nowMin < s.close)
+      if (!isOpenNow) {
+        // check créneaux d'hier qui passent minuit
+        for (const s of yesterdaySlots) {
+          if (s.close > 1440 && nowMin < s.close - 1440) {
+            isOpenNow = true
+            break
+          }
+        }
+      }
+    }
+
+    const isAllPast = isToday && hasSlots && slots[slots.length - 1].close <= nowMin
+    const nextOpenToday = isToday ? (slots.find((s) => s.open > nowMin)?.ouverture ?? null) : null
+
     return {
-      nom: jour,
-      horaire: horairesExistants[jour] || { ouvert: false, creneaux: [] },
+      nom,
+      horaire: def,
+      slots,
+      isToday,
+      hasSlots,
+      isOpenNow,
+      isAllPast,
+      nextOpenToday,
     }
   })
 })
 
-const formatDayName = (jour) => {
-  const noms = {
-    lundi: 'Lundi',
-    mardi: 'Mardi',
-    mercredi: 'Mercredi',
-    jeudi: 'Jeudi',
-    vendredi: 'Vendredi',
-    samedi: 'Samedi',
-    dimanche: 'Dimanche',
-  }
-  return noms[jour] || jour.charAt(0).toUpperCase() + jour.slice(1)
-}
+/* -------------------- Utils divers -------------------- */
+const formatDayName = (jour) => DAY_LABEL[jour] || jour.charAt(0).toUpperCase() + jour.slice(1)
 
-const isToday = (jour) => {
-  const today = new Date()
-  const dayIndex = today.getDay() // 0 = dimanche, 1 = lundi, etc.
-  const jours = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi']
-  return jours[dayIndex] === jour
-}
-
-const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-  })
-}
-
-const findNextOpening = () => {
-  // Logique simplifiée - à implémenter selon vos besoins
-  return 'Demain 08:00'
-}
-
-const findNextClosing = () => {
-  // Logique simplifiée - à implémenter selon vos besoins
-  return 'Ferme à 14:00'
-}
+const formatDate = (dateString) =>
+  new Date(dateString).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 
 const toggleFavorite = () => {
   isFavorite.value = !isFavorite.value
-  // TODO: Sauvegarder en base/localStorage
-  console.log('Favori:', isFavorite.value)
+  // TODO: sauvegarde
 }
 
-// Partage social
+/* Partage */
 const shareToFacebook = () => {
   const url = encodeURIComponent(window.location.href)
   window.open(
@@ -1038,7 +1071,6 @@ const shareToFacebook = () => {
     'width=600,height=400',
   )
 }
-
 const shareToTwitter = () => {
   const url = encodeURIComponent(window.location.href)
   const text = encodeURIComponent(
@@ -1050,7 +1082,6 @@ const shareToTwitter = () => {
     'width=600,height=400',
   )
 }
-
 const shareToLinkedIn = () => {
   const url = encodeURIComponent(window.location.href)
   window.open(
@@ -1059,7 +1090,6 @@ const shareToLinkedIn = () => {
     'width=600,height=400',
   )
 }
-
 const copyLink = async () => {
   try {
     await navigator.clipboard.writeText(window.location.href)
@@ -1069,15 +1099,13 @@ const copyLink = async () => {
       detail: 'Lien copié dans le presse-papier !',
       life: 3000,
     })
-  } catch (err) {
-    // Fallback pour navigateurs anciens
+  } catch {
     const textArea = document.createElement('textarea')
     textArea.value = window.location.href
     document.body.appendChild(textArea)
     textArea.select()
     document.execCommand('copy')
     document.body.removeChild(textArea)
-
     toast.add({
       severity: 'success',
       summary: 'Succès',
@@ -1086,42 +1114,29 @@ const copyLink = async () => {
     })
   }
 }
-
-// Partage natif mobile
 const shareNative = async () => {
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: `Service ${service.value.nom}`,
-        text: `Découvrez le service ${service.value.nom} à ${service.value.ville}`,
-        url: window.location.href,
-      })
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error('Erreur de partage:', err)
-      }
-    }
-  } else {
-    // Fallback
-    copyLink()
+  if (!navigator.share) return copyLink()
+  try {
+    await navigator.share({
+      title: `Service ${service.value.nom}`,
+      text: `Découvrez le service ${service.value.nom} à ${service.value.ville}`,
+      url: window.location.href,
+    })
+  } catch (err) {
+    if (err.name !== 'AbortError') console.error('Erreur de partage:', err)
   }
 }
 
+/* -------------------- Lifecycle -------------------- */
 onMounted(() => {
   loadData()
 })
-
 watch(
   () => route.params.slug,
-  () => {
-    loadData()
-  },
+  () => loadData(),
 )
-
 onUnmounted(() => {
-  if (map.value) {
-    map.value.remove()
-  }
+  if (map.value) map.value.remove()
 })
 </script>
 
@@ -1129,11 +1144,9 @@ onUnmounted(() => {
 .star-rating {
   display: flex;
 }
-
 .star-rating i {
   transition: all 0.2s ease;
 }
-
 .star-rating i:hover {
   transform: scale(1.1);
 }
@@ -1141,22 +1154,20 @@ onUnmounted(() => {
 .card {
   transition: all 0.3s ease;
 }
-
 .max-height-400 {
   max-height: 400px;
 }
-
 .last-child-no-border > div:last-child {
   border-bottom: none !important;
   padding-bottom: 0 !important;
   margin-bottom: 0 !important;
 }
 
+/* Marker Leaflet */
 :deep(.custom-marker-container) {
   background: transparent;
   border: none;
 }
-
 :deep(.custom-marker) {
   width: 30px;
   height: 30px;
@@ -1171,7 +1182,6 @@ onUnmounted(() => {
   color: white;
   font-size: 12px;
 }
-
 :deep(.custom-marker i) {
   transform: rotate(45deg);
 }
@@ -1180,7 +1190,6 @@ onUnmounted(() => {
   background-color: #e9ecef;
   border-radius: 3px;
 }
-
 .progress-bar {
   border-radius: 3px;
 }
@@ -1190,11 +1199,9 @@ onUnmounted(() => {
     padding-left: 0.75rem;
     padding-right: 0.75rem;
   }
-
   .card-body {
     padding: 1rem !important;
   }
-
   .h3 {
     font-size: 1.5rem;
   }
@@ -1204,7 +1211,7 @@ onUnmounted(() => {
   background-color: white !important;
 }
 
-/* Responsive adjustments */
+/* Header */
 .service-icon {
   width: 60px;
   height: 60px;
@@ -1212,12 +1219,10 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
 }
-
 .service-title {
   line-height: 1.2;
   word-break: break-word;
 }
-
 .service-meta {
   display: flex;
   flex-direction: column;
@@ -1225,55 +1230,45 @@ onUnmounted(() => {
   font-size: 0.875rem;
   color: #6c757d;
 }
-
 .meta-item {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
 }
-
 .status-dot {
   font-size: 0.7rem;
   flex-shrink: 0;
 }
-
 .next-change {
   opacity: 0.8;
 }
 
-/* Tablettes et plus */
 @media (min-width: 768px) {
   .service-meta {
     flex-direction: row;
     gap: 1rem;
   }
-
   .meta-item {
     flex-wrap: nowrap;
     white-space: nowrap;
   }
 }
 
-/* Mobile portrait */
 @media (max-width: 575px) {
   .service-icon {
     width: 50px;
     height: 50px;
   }
-
   .service-icon i {
     font-size: 1.25rem !important;
   }
-
   .service-title {
     font-size: 1.25rem;
     margin-bottom: 0.75rem;
   }
-
   .service-meta {
     font-size: 0.8rem;
   }
-
   .next-change {
     display: block;
     margin-left: 1rem;
@@ -1281,17 +1276,14 @@ onUnmounted(() => {
   }
 }
 
-/* Très petits écrans */
 @media (max-width: 380px) {
   .service-title {
     font-size: 1.1rem;
   }
-
   .meta-item {
     align-items: flex-start;
     flex-direction: column;
   }
-
   .next-change {
     margin-left: 0;
   }
