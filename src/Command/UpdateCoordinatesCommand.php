@@ -33,9 +33,8 @@ class UpdateCoordinatesCommand extends Command
         private EntityManagerInterface $entityManager,
         private GeolocationService $geolocationService,
         private LoggerInterface $logger,
-        string $name
     ) {
-        parent::__construct($name);
+        parent::__construct();
     }
 
     protected function configure(): void
