@@ -169,8 +169,10 @@ class UpdateCoordinatesCommand extends Command
         $qb = $this->entityManager->getRepository(ServicePublic::class)
             ->createQueryBuilder('sp')
             ->where('sp.score IS NULL OR sp.score <= 0.8')
+            ->orderBy('sp.id', 'ASC')              // <-- IMPORTANT
             ->setMaxResults($limit)
             ->setFirstResult($offset);
+
         if (!$forceAll) {
             $qb->andWhere('sp.latitude IS NULL OR sp.longitude IS NULL');
         }
@@ -185,63 +187,56 @@ class UpdateCoordinatesCommand extends Command
         ProgressBar $progressBar
     ): void {
         foreach ($services as $service) {
+            $line = null;
             $adresse = $this->buildAddressString($service);
             try {
                 if (empty(trim($adresse))) {
                     $stats['skipped']++;
                     $line = sprintf(
-                        "[%s] Skipped empty adresse – ID %s – %s",
+                        "[%s] Skipped empty adresse – %s – %s",
                         date('Y-m-d H:i:s'),
-                        $service->getId()->toRfc4122(),
-                        $adresse,
-                    ); 
-                } else {
-                    $result = $this->geolocationService->geocodeAddressWithFallback($adresse);
-                    if ($result && isset($result['lat'], $result['lng'])) {
-                        $this->processApiResult(
-                            $service,
-                            $result,
-                            $stats,
-                            $distanceAlerts,
-                            $this->isDryRun
-                        );
-                        $stats['updated']++;
-                    } else {
-                        $stats['not_found']++;
-                        $line = sprintf(
-                            "\n[%s] Not Found – ID %s – %s",
-                            date('Y-m-d H:i:s'),
-                            $service->getId()->toRfc4122(),
-                            $adresse
-                        );
+                        $service->getNom(),
+                        $adresse
+                    );
+                    if (!$this->isDryRun) {
+                        file_put_contents($this->logFilePath, $line."\n", FILE_APPEND);
                     }
-
-                    if (!$this->isDryRun && !empty($line)) {
-                        file_put_contents(
-                            $this->logFilePath,
-                            $line,
-                            FILE_APPEND
-                        );
-                        $this->io->text($line);
-                    }
+                    $this->io->text($line);
+                    $progressBar->advance(1);
+                    continue;
                 }
+
+                $result = $this->geolocationService->geocodeAddressWithFallback($adresse);
+
+                if ($result && isset($result['lat'], $result['lng'])) {
+                    $this->processApiResult($service, $result, $stats, $distanceAlerts, $this->isDryRun);
+                } else {
+                    $stats['not_found']++;
+                    $line = sprintf(
+                        "[%s] Not Found – %s – %s",
+                        date('Y-m-d H:i:s'),
+                        $service->getNom(),
+                        $adresse
+                    );
+                    if (!$this->isDryRun) {
+                        file_put_contents($this->logFilePath, $line."\n", FILE_APPEND);
+                    }
+                    $this->io->text($line);
+                }
+
             } catch (\Exception $e) {
                 $stats['errors']++;
                 $errorLine = sprintf(
-                    "\n[%s] ERROR – ID %s – %s – %s",
+                    "[%s] ERROR – %s – %s – %s",
                     date('Y-m-d H:i:s'),
-                    $service->getId()->toRfc4122(),
+                    $service->getNom(),
                     $adresse,
                     $e->getMessage()
                 );
-                if (! $this->isDryRun) {
-                    file_put_contents(
-                        $this->logFilePath,
-                        $errorLine,
-                        FILE_APPEND
-                    );
+                if (!$this->isDryRun) {
+                    file_put_contents($this->logFilePath, $errorLine."\n", FILE_APPEND);
                 }
-                $this->io->text($line);
+                $this->io->text($errorLine);
                 $this->logger->error('Erreur lors du géocodage', [
                     'service_id' => $service->getId()->toRfc4122(),
                     'adresse'    => $adresse,
@@ -251,6 +246,7 @@ class UpdateCoordinatesCommand extends Command
 
             $progressBar->advance(1);
         }
+
 
         if (!$this->isDryRun) {
             $this->entityManager->flush();
