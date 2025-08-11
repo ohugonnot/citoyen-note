@@ -33,7 +33,7 @@ class UpdateCoordinatesCommand extends Command
         private EntityManagerInterface $entityManager,
         private GeolocationService $geolocationService,
         private LoggerInterface $logger,
-        string $name = null
+        string $name
     ) {
         parent::__construct($name);
     }
@@ -190,6 +190,12 @@ class UpdateCoordinatesCommand extends Command
             try {
                 if (empty(trim($adresse))) {
                     $stats['skipped']++;
+                    $line = sprintf(
+                        "[%s] Skipped empty adresse – ID %s – %s\n",
+                        date('Y-m-d H:i:s'),
+                        $service->getId()->toRfc4122(),
+                        $adresse,
+                    ); 
                 } else {
                     $result = $this->geolocationService->geocodeAddressWithFallback($adresse);
                     if ($result && isset($result['lat'], $result['lng'])) {
@@ -201,19 +207,19 @@ class UpdateCoordinatesCommand extends Command
                             $this->isDryRun
                         );
                         $stats['updated']++;
-  /*                      $line = sprintf(
-                            "[%s] OK       – ID %s – %s → lat:%.6f, lng:%.6f, score:%.2f\n",
+                        $line = sprintf(
+                            "[%s] Updated – ID %s – %s → lat:%.6f, lng:%.6f, score:%.2f\n",
                             date('Y-m-d H:i:s'),
                             $service->getId()->toRfc4122(),
                             $adresse,
                             $result['lat'],
                             $result['lng'],
                             $result['score'] ?? 0
-                        ); */
+                        ); 
                     } else {
                         $stats['not_found']++;
                         $line = sprintf(
-                            "[%s] NOTFOUND – ID %s – %s\n",
+                            "[%s] Not Found – ID %s – %s\n",
                             date('Y-m-d H:i:s'),
                             $service->getId()->toRfc4122(),
                             $adresse
@@ -231,7 +237,7 @@ class UpdateCoordinatesCommand extends Command
             } catch (\Exception $e) {
                 $stats['errors']++;
                 $errorLine = sprintf(
-                    "[%s] ERROR    – ID %s – %s – %s\n",
+                    "[%s] ERROR – ID %s – %s – %s\n",
                     date('Y-m-d H:i:s'),
                     $service->getId()->toRfc4122(),
                     $adresse,
