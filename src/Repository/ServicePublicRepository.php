@@ -7,8 +7,12 @@ use App\Dto\ServicePublicFilterDto;
 use App\Entity\ServicePublic;
 use App\Entity\CategorieService;
 use App\Enum\StatutService;
+use App\Service\SearchNormalizer;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
+use Doctrine\DBAL\Platforms\MySQLPlatform;
+use Doctrine\DBAL\Platforms\SqlitePlatform;
 
 class ServicePublicRepository extends ServiceEntityRepository
 {
@@ -17,10 +21,33 @@ class ServicePublicRepository extends ServiceEntityRepository
         parent::__construct($registry, ServicePublic::class);
     }
 
+    private function driver(): string
+    {
+        $platform = $this->getEntityManager()
+            ->getConnection()
+            ->getDatabasePlatform();
+
+        return match (true) {
+            $platform instanceof PostgreSQLPlatform => 'postgresql',
+            $platform instanceof MySQLPlatform      => 'mysql',
+            $platform instanceof SqlitePlatform     => 'sqlite',
+            default                                 => 'unknown',
+        };
+    }
+
+    private function colExpr(string $column): string
+    {
+        $platform = $this->driver(); // "postgresql" | "mysql" | "sqlite" | ...
+        return match ($platform) {
+            'postgresql' => "LOWER(unaccent($column))",
+            'mysql'      => "LOWER($column) COLLATE utf8mb4_0900_ai_ci",
+            default      => "LOWER($column)", // SQLite & autres: fallback (accents non retirés)
+        };
+    }
+
     public function findByProximite(float $lat, float $lng, float $rayon = 10): array
     {
-        // Calcul approximatif pour la recherche par proximité
-        $latRange = $rayon / 111; // 1 degré ≈ 111 km
+        $latRange = $rayon / 111;
         $lngRange = $rayon / (111 * cos(deg2rad($lat)));
 
         return $this->createQueryBuilder('sp')
@@ -51,112 +78,157 @@ class ServicePublicRepository extends ServiceEntityRepository
 
     public function findByVille(string $ville): array
     {
-        return $this->createQueryBuilder('sp')
-            ->where('LOWER(sp.ville) LIKE LOWER(:ville)')
+        $qb = $this->createQueryBuilder('sp')
             ->andWhere('sp.statut = :statut')
-            ->setParameter('ville', '%' . $ville . '%')
             ->setParameter('statut', StatutService::ACTIF)
-            ->orderBy('sp.nom', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->orderBy('sp.nom', 'ASC');
+
+        // accent-insensitive
+        $expr = $this->colExpr('sp.ville') . ' LIKE :ville';
+        $qb->andWhere($expr)->setParameter('ville', '%' . SearchNormalizer::normalize($ville) . '%');
+
+        return $qb->getQuery()->getResult();
     }
 
     public function search(string $terme): array
     {
-        return $this->createQueryBuilder('sp')
+        $qb = $this->createQueryBuilder('sp')
             ->leftJoin('sp.categorie', 'categorie')
-            ->where('LOWER(sp.nom) LIKE LOWER(:terme)')
-            ->orWhere('LOWER(sp.description) LIKE LOWER(:terme)')
-            ->orWhere('LOWER(categorie.nom) LIKE LOWER(:terme)')
             ->andWhere('sp.statut = :statut')
-            ->setParameter('terme', '%' . $terme . '%')
             ->setParameter('statut', StatutService::ACTIF)
-            ->orderBy('sp.nom', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->orderBy('sp.nom', 'ASC');
+
+        $t = SearchNormalizer::normalize($terme);
+        $cols = [
+            $this->colExpr('sp.nom'),
+            $this->colExpr('sp.description'),
+            $this->colExpr('categorie.nom'),
+        ];
+        $or = '(' . implode(' OR ', array_map(fn($c) => "$c LIKE :t", $cols)) . ')';
+
+        $qb->andWhere($or)->setParameter('t', '%' . $t . '%');
+
+        return $qb->getQuery()->getResult();
     }
 
-    public function findServicesWithFilters(ServicePublicFilterDto $filterDto): array
-    {
+    // === Méthode principale paginée avec filtres + recherche robuste =========
+    /**
+     * Recherche paginée avec :
+     *  - accent/case insensitive
+     *  - (full string) OR (tous les mots, AND entre mots / OR entre colonnes)
+     *  - filtres statut/ville/catégorie
+     *  - optionnel: filtre par distance et tri distance si coords fournies
+     *
+     * @return array{services: array, total: int}
+     */
+    public function findServicesWithFilters(
+        ServicePublicFilterDto $filterDto,
+        ?float $lat = null,
+        ?float $lng = null,
+        ?float $rayon = null,
+        bool $useGeoSql = true
+    ): array {
         $qb = $this->createQueryBuilder('sp')
-            ->leftJoin('sp.categorie', 'categorie');
+            ->leftJoin('sp.categorie', 'categorie')
+            ->andWhere('sp.statut = :statut')
+            ->setParameter('statut', $filterDto->statut ?? StatutService::ACTIF);
 
-        // Recherche
+        // ---- GEO (rayon en km) ----
+        if ($lat !== null && $lng !== null && $useGeoSql) {
+
+            $qb->andWhere(sprintf(
+                '(6371 * acos(cos(radians(%f)) * cos(radians(sp.latitude)) * cos(radians(sp.longitude) - radians(%f)) + sin(radians(%f)) * sin(radians(sp.latitude)))) <= :rayon',
+                $lat, $lng, $lat
+            ))
+                ->andWhere('sp.latitude IS NOT NULL AND sp.longitude IS NOT NULL')
+                ->setParameter('rayon', $rayon ?? 25);
+
+            // distance calculée côté SQL si besoin de trier
+            if ($filterDto->sortField === 'distance') {
+                $qb->addSelect(sprintf(
+                    '(6371 * acos(cos(radians(%f)) * cos(radians(sp.latitude)) * cos(radians(sp.longitude) - radians(%f)) + sin(radians(%f)) * sin(radians(sp.latitude)))) AS HIDDEN distance',
+                    $lat, $lng, $lat
+                ));
+            }
+        } elseif (!empty($filterDto->ville)) {
+            // filtre ville (accent-insensitive)
+            $qb->andWhere($this->colExpr('sp.ville') . ' LIKE :ville')
+               ->setParameter('ville', '%' . SearchNormalizer::normalize($filterDto->ville) . '%');
+        }
+
+        if (!empty($filterDto->categorie)) {
+            $qb->andWhere('categorie.id = :categorie')
+               ->setParameter('categorie', $filterDto->categorie, is_string($filterDto->categorie) ? 'uuid' : null);
+        }
+
+        if (!empty($filterDto->source)) {
+            $qb->andWhere('sp.source = :source')->setParameter('source', $filterDto->source);
+        }
+
+        // ---- RECHERCHE : (full string) OR (AND entre mots, OR entre colonnes) ----
         if (!empty($filterDto->search)) {
-            $expr = $qb->expr();
-            $search = strtolower(trim($filterDto->search));
-            $words = preg_split('/\s+/', $search);
+            $columns = [
+                $this->colExpr('sp.nom'),
+                $this->colExpr('sp.ville'),
+                $this->colExpr('sp.description'),
+                $this->colExpr('sp.codePostal'),
+                $this->colExpr('categorie.nom'),
+            ];
 
-            $fullSearchExpr = $expr->orX(
-                $expr->like('LOWER(sp.nom)', ':fullSearch'),
-                $expr->like('LOWER(sp.ville)', ':fullSearch'),
-                $expr->like('LOWER(sp.description)', ':fullSearch'),
-                $expr->like('LOWER(sp.codePostal)', ':fullSearch'),
-                $expr->like('LOWER(categorie.nom)', ':fullSearch')
-            );
-            $qb->setParameter('fullSearch', '%' . $search . '%');
+            // full string
+            $full = SearchNormalizer::normalize($filterDto->search);
+            $fullOr = [];
+            foreach ($columns as $i => $c) {
+                $fullOr[] = "$c LIKE :fullSearch";
+            }
+            $qb->setParameter('fullSearch', '%' . $full . '%');
 
-            $allWordsExpr = $expr->andX(); // ET entre les mots
-
-            foreach ($words as $i => $word) {
-                if (strlen($word) < 2) continue;
-                $paramName = "word_$i";
-
-                $wordExpr = $expr->orX(
-                    $expr->like('LOWER(sp.nom)', ":$paramName"),
-                    $expr->like('LOWER(sp.ville)', ":$paramName"),
-                    $expr->like('LOWER(sp.description)', ":$paramName"),
-                    $expr->like('LOWER(sp.codePostal)', ":$paramName"),
-                    $expr->like('LOWER(categorie.nom)', ":$paramName")
-                );
-
-                $allWordsExpr->add($wordExpr);
-                $qb->setParameter($paramName, '%' . $word . '%');
+            // words AND (each word must match at least one column)
+            $words = array_filter(array_map([SearchNormalizer::class, 'normalize'], $filterDto->words()));
+            $andParts = [];
+            foreach ($words as $k => $w) {
+                $param = "w_$k";
+                $likes = [];
+                foreach ($columns as $c) {
+                    $likes[] = "$c LIKE :$param";
+                }
+                $andParts[] = '(' . implode(' OR ', $likes) . ')';
+                $qb->setParameter($param, '%' . $w . '%');
             }
 
-            // Final : fullSearch OR (every word is found)
-            $qb->andWhere($expr->orX($fullSearchExpr, $allWordsExpr));
+            $fullClause = '(' . implode(' OR ', $fullOr) . ')';
+            $andClause  = $andParts ? implode(' AND ', $andParts) : '1=1';
+
+            $qb->andWhere("($fullClause OR ($andClause))");
         }
 
-        // Filtres
-        if ($filterDto->statut) {
-            $qb->andWhere('sp.statut = :statut')
-            ->setParameter('statut', $filterDto->statut);
-        }
-
-        if ($filterDto->ville) {
-            $qb->andWhere('sp.ville = :ville')
-            ->setParameter('ville', $filterDto->ville);
-        }
-
-        if ($filterDto->categorie) {
-            $qb->andWhere('categorie.id = :categorie')
-            ->setParameter('categorie', $filterDto->categorie, is_string($filterDto->categorie) ? 'uuid' : null);
-        }
-
-        // 🎯 Tri avec mapping des champs
         $orderBy = $this->mapSortField($filterDto->sortField);
-        $qb->orderBy($orderBy, $filterDto->sortOrder);
+        if ($filterDto->sortField === 'distance' && $lat !== null && $lng !== null && $useGeoSql) {
+            $qb->orderBy('distance', strtoupper($filterDto->sortOrder) === 'DESC' ? 'DESC' : 'ASC');
+        } else {
+            $qb->orderBy($orderBy, strtoupper($filterDto->sortOrder) === 'DESC' ? 'DESC' : 'ASC');
+        }
 
-        // Pagination
         $totalQuery = clone $qb;
-        $total = $totalQuery->select('COUNT(sp.id)')->getQuery()->getSingleScalarResult();
+        $total = (int) $totalQuery->select('COUNT(sp.id)')->resetDQLPart('orderBy')->getQuery()->getSingleScalarResult();
 
+        // ---- Pagination ----
         $services = $qb
-            ->setFirstResult(($filterDto->page - 1) * $filterDto->limit)
+            ->setFirstResult(max(0, ($filterDto->page - 1) * $filterDto->limit))
             ->setMaxResults($filterDto->limit)
             ->getQuery()
             ->getResult();
 
         return [
-            'services' => $services, 
-            'total' => $total
+            'services' => $services,
+            'total' => $total,
         ];
     }
 
     private function mapSortField(string $sortField): string
     {
-        return match($sortField) {
+        return match ($sortField) {
+            'distance' => 'sp.nom', 
             'categorie.nom', 'categorie_nom' => 'categorie.nom',
             'nom', 'ville', 'statut', 'createdAt', 'updatedAt' => 'sp.' . $sortField,
             default => 'sp.' . $sortField
@@ -171,7 +243,7 @@ class ServicePublicRepository extends ServiceEntityRepository
                     SUM(CASE WHEN sp.statut = 'ferme' THEN 1 ELSE 0 END) as fermes,
                     COUNT(DISTINCT sp.ville) as villes
                 FROM App\Entity\ServicePublic sp";
-                
+
         return $this->getEntityManager()
             ->createQuery($dql)
             ->getSingleResult();

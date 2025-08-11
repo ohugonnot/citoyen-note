@@ -30,4 +30,12 @@ class ServicePublicFilterDto
             'source' => $this->source,
         ];
     }
+
+    public function words(): array
+    {
+        $s = trim($this->search);
+        if ($s === '') return [];
+        // split on any whitespace
+        return preg_split('/\s+/u', $s) ?: [];
+    }
 }

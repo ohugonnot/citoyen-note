@@ -2,20 +2,19 @@
 
 namespace App\Controller\Public;
 
-use App\Entity\CategorieService;
+use App\Dto\ServicePublicFilterDto;
 use App\Entity\Evaluation;
 use App\Entity\ServicePublic;
-use App\Enum\StatutService;
 use App\Enum\StatutEvaluation;
-use App\Helper\CategorieServiceJsonHelper;
+use App\Enum\StatutService;
 use App\Helper\EvaluationJsonHelper;
+use App\Helper\GeoHelper;
 use App\Helper\ServicePublicJsonHelper;
-use App\Repository\CategorieServiceRepository;
 use App\Repository\EvaluationRepository;
 use App\Repository\ServicePublicRepository;
 use App\Service\EvaluationManager;
-use App\Service\PublicAuthService;
 use App\Service\GeolocationService;
+use App\Service\PublicAuthService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -30,13 +29,12 @@ class ServicePublicController extends AbstractController
 {
     public function __construct(
         private ServicePublicRepository $serviceRepository,
-        private EvaluationManager $evaluationManager,
-        private CategorieServiceRepository $categorieRepository,
         private EvaluationRepository $evaluationRepository,
+        private EvaluationManager $evaluationManager,
         private EntityManagerInterface $em,
         private ValidatorInterface $validator,
         private PublicAuthService $publicAuthService,
-        private GeolocationService $geolocationService
+        private GeolocationService $geolocationService,
     ) {}
 
     #[Route('', name: 'api_services_publics_list', methods: ['GET'])]
@@ -44,183 +42,134 @@ class ServicePublicController extends AbstractController
     {
         $timeStart = microtime(true);
         $timings = [];
-        $driver = $this->em->getConnection()->getParams()['driver'] ?? '';
+
+        $driver = (string) ($this->em->getConnection()->getParams()['driver'] ?? '');
         $isSqlite = str_starts_with($driver, 'pdo_sqlite');
 
-        $search = $request->query->get('search', '');
         $villeData = $request->query->all('ville', []);
-        $categorie = $request->query->get('categorie');
-        $uuid = $categorie ? Uuid::fromString($categorie) : null;
-        $page = max(1, (int) $request->query->get('page', 1));
-        $limit = min(100, max(1, (int) $request->query->get('limit', 100)));
+        $rayon = (float) min(50, max(1, (float) $request->query->get('rayon', 25)));
+        $sortField = (string) $request->query->get('tri', 'nom'); 
 
-        $rayon = min(50, max(1, (float) $request->query->get('rayon', 25)));
-        $lat = $villeData['latitude'] ?? null;
-        $lng = $villeData['longitude'] ?? null;
-        $tri = $request->query->get('tri', 'nom');
+        $filter = new ServicePublicFilterDto(
+            search: (string) $request->query->get('search', ''),
+            page: max(1, (int) $request->query->get('page', 1)),
+            limit: min(100, max(1, (int) $request->query->get('limit', 100))),
+            sortField: $sortField,
+            sortOrder: (string) $request->query->get('order', 'ASC'),
+            statut: StatutService::ACTIF->value,
+            ville: $villeData['nom'] ?? null,
+            categorie: $request->query->get('categorie') ?: null,
+            source: $request->query->get('source') ?: null
+        );
 
-        $ville = $villeData['nom'] ?? '';
-        $codePostal = $villeData['codePostal'] ?? '';
-        $timings['params'] = round((microtime(true) - $timeStart) * 1000, 2);
-
-        $stepStart = microtime(true);
+        // --- geocodage si coords manquantes
+        $lat = isset($villeData['latitude']) ? (float) $villeData['latitude'] : null;
+        $lng = isset($villeData['longitude']) ? (float) $villeData['longitude'] : null;
         $coordonnees = null;
 
-        if (!$lat || !$lng) {
-            if ($ville || $codePostal) {
-                $coordonnees = $this->geolocationService->geocodeAddress($ville);
-                if ($coordonnees && !empty($coordonnees["temp"])) {
-                    $lat = $coordonnees["temp"]['lat'];
-                    $lng = $coordonnees["temp"]['lng'];
+        if (!$this->geolocationService->validateCoordinates($lat, $lng)) {
+            $lat = $lng = null;
+            $ville = $villeData['nom'] ?? '';
+            $cp = $villeData['codePostal'] ?? '';
+            if ($ville || $cp) {
+                $geo = $this->geolocationService->geocodeAddress($ville);
+                if ($geo) {
+                    $lat = $geo['lat'] ?? null;
+                    $lng = $geo['lng'] ?? null;
                 }
             }
-        } else {
+        }
+        if ($this->geolocationService->validateCoordinates($lat, $lng)) {
             $coordonnees = ['lat' => $lat, 'lng' => $lng];
         }
 
-        $timings['geolocation'] = round((microtime(true) - $stepStart) * 1000, 2);
-
         $stepStart = microtime(true);
-        $countQb = $this->serviceRepository->createQueryBuilder('s')
-            ->select('COUNT(s.id)')
-            ->where('s.statut = :statut')
-            ->setParameter('statut', StatutService::ACTIF);
-        
-            $this->applyFilters($countQb, $search, $ville, $uuid, $codePostal, $lat, $lng, $rayon, !$isSqlite);
-        $total = (int) $countQb->getQuery()->getSingleScalarResult();
-        $timings['count_query'] = round((microtime(true) - $stepStart) * 1000, 2);
+        $result = $this->serviceRepository->findServicesWithFilters(
+            $filter,
+            lat: $lat,
+            lng: $lng,
+            rayon: $rayon,
+            useGeoSql: !$isSqlite
+        );
+        $services = $result['services'];
+        $total = (int) $result['total'];
+        $timings['query'] = round((microtime(true) - $stepStart) * 1000, 2);
 
-        $stepStart = microtime(true);
-        $qb = $this->serviceRepository->createQueryBuilder('s')
-            ->select('s, c')
-            ->leftJoin('s.categorie', 'c')
-            ->where('s.statut = :statut')
-            ->setParameter('statut', StatutService::ACTIF);
-
-        if ($lat && $lng && !$isSqlite) {
-            $qb->addSelect(sprintf(
-                '(6371 * acos(cos(radians(%f)) * cos(radians(s.latitude)) * cos(radians(s.longitude) - radians(%f)) + sin(radians(%f)) * sin(radians(s.latitude)))) AS HIDDEN distance',
-                $lat, $lng, $lat
-            ));
-        }
-
-        $this->applyFilters($qb, $search, $ville, $uuid, $codePostal, $lat, $lng, $rayon, !$isSqlite);
-
-        switch ($tri) {
-            case 'distance':
-                if ($lat && $lng && !$isSqlite) {
-                    $qb->orderBy('distance', 'ASC');
-                } else {
-                    $qb->orderBy('s.nom', 'ASC');
-                }
-                break;
-            case 'note':
-                $qb->leftJoin('s.evaluations', 'e', 'WITH', 'e.statut = :statutEval and e.estVerifie = true')
-                    ->addSelect('AVG(e.note) as HIDDEN moyenne_note')
-                    ->setParameter('statutEval', StatutEvaluation::ACTIVE)
-                    ->groupBy('s.id')
-                    ->orderBy('moyenne_note', 'DESC');
-                break;
-            default:
-                $qb->orderBy('s.nom', 'ASC');
-        }
-
-        $qb->setFirstResult(($page - 1) * $limit)->setMaxResults($limit);
-        $services = $qb->getQuery()->getResult();
         $ids = array_map(fn(ServicePublic $s) => $s->getId()->toBinary(), $services);
         $stats = $this->evaluationRepository->getStatsForServices($ids);
-
         $statsById = [];
         foreach ($stats as $row) {
             $statsById[$row['sid']] = [
-                'moyenne' => round((float)$row['moyenne'], 1),
-                'total'   => (int)$row['total'],
+                'moyenne' => round((float) $row['moyenne'], 1),
+                'total'   => (int) $row['total'],
             ];
         }
-        $timings['services_query'] = round((microtime(true) - $stepStart) * 1000, 2);
 
-        $stepStart = microtime(true);
-        $timings['categories_query'] = round((microtime(true) - $stepStart) * 1000, 2);
-
-        $stepStart = microtime(true);
         $servicesData = [];
-        foreach ($services as $result) {
-            $service = is_array($result) ? $result[0] : $result;
+        foreach ($services as $row) {
+            $service = is_array($row) ? $row[0] : $row;
             $data = ServicePublicJsonHelper::build($service, 'public');
-            foreach ($data as $key => $value) {
-                if (is_string($value)) {
-                    $data[$key] = $this->cleanString($value);
-                }
-            }
 
             $st = $statsById[$service->getId()->toBinary()] ?? ['moyenne' => 0.0, 'total' => 0];
             $data['note_moyenne']       = $st['moyenne'];
             $data['nombre_evaluations'] = $st['total'];
-            
-            $distance = null;
-            if ($lat && $lng) {
-                if (!$isSqlite && is_array($result) && isset($result['distance'])) {
-                    $distance = round($result['distance'], 1);
+
+            if ($coordonnees) {
+                $distance = null;
+                if (!$isSqlite && is_array($row) && isset($row['distance'])) {
+                    $distance = round($row['distance'], 1);
                 } elseif ($service->getLatitude() && $service->getLongitude()) {
-                    $distance = round($this->haversine($lat, $lng, $service->getLatitude(), $service->getLongitude()), 1);
+                    $distance = round(GeoHelper::haversine($coordonnees['lat'], $coordonnees['lng'], $service->getLatitude(), $service->getLongitude()), 1);
                 }
                 if ($distance !== null) {
                     $data['distance'] = $distance;
-                    $data['distance_text'] = $this->formatDistance($distance);
+                    $data['distance_text'] = GeoHelper::formatDistance($distance);
                 }
             }
 
             $servicesData[] = $data;
         }
 
-        if ($isSqlite && $tri === 'distance') {
+        // tri distance côté PHP si SQLite
+        if ($isSqlite && $sortField === 'distance' && $coordonnees) {
             usort($servicesData, fn($a, $b) => ($a['distance'] ?? INF) <=> ($b['distance'] ?? INF));
         }
 
-        $timings['services_processing'] = round((microtime(true) - $stepStart) * 1000, 2);
-
-        $stepStart = microtime(true);
-        $timings['categories_processing'] = round((microtime(true) - $stepStart) * 1000, 2);
-
-        $stepStart = microtime(true);
         $response = [
             'success' => true,
             'data' => $servicesData,
             'pagination' => [
-                'page' => $page,
-                'limit' => $limit,
+                'page' => $filter->page,
+                'limit' => $filter->limit,
                 'total' => $total,
-                'pages' => ceil($total / $limit),
-                'hasNext' => $page < ceil($total / $limit),
-                'hasPrev' => $page > 1,
+                'pages' => (int) ceil($total / $filter->limit),
+                'hasNext' => $filter->page < ceil($total / $filter->limit),
+                'hasPrev' => $filter->page > 1,
             ],
             'filters' => [
-                'search' => $search,
+                'search' => $filter->search,
                 'ville' => $villeData,
-                'categorie' => $categorie,
+                'categorie' => $filter->categorie,
                 'rayon' => $rayon,
-                'tri' => $tri,
+                'tri' => $sortField,
+                'order' => $filter->sortOrder,
             ],
             'geolocation' => [
                 'center' => $coordonnees,
                 'radius' => $rayon,
-                'has_coordinates' => $lat && $lng,
+                'has_coordinates' => (bool) $coordonnees,
             ]
         ];
 
-        $timings['response_build'] = round((microtime(true) - $stepStart) * 1000, 2);
-        $timings['total'] = round((microtime(true) - $timeStart) * 1000, 2);
-
         if ($this->getParameter('kernel.environment') === 'dev') {
+            $timings['total'] = round((microtime(true) - $timeStart) * 1000, 2);
             $response['debug'] = [
                 'timings' => $timings,
-                'counts' => [
-                    'services' => count($servicesData),
-                ],
+                'counts' => ['services' => count($servicesData)],
                 'sql_filters' => [
-                    'has_geo_filter' => $lat && $lng,
+                    'has_geo_filter' => (bool) $coordonnees,
                     'radius_km' => $rayon,
-                    'sort_by' => $tri
+                    'sort_by' => $sortField,
                 ]
             ];
         }
@@ -228,73 +177,6 @@ class ServicePublicController extends AbstractController
         return $this->json($response, 200, [], [
             'json_encode_options' => JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
         ]);
-    }
-
-    private function applyFilters($qb, string $search, string $ville, ?Uuid $categorie, string $codePostal, ?float $lat, ?float $lng, float $rayon, bool $useGeoSQL = true): void
-    {
-        if ($search) {
-            $qb->andWhere('LOWER(s.nom) LIKE :search OR LOWER(s.description) LIKE :search')
-                ->setParameter('search', '%' . mb_strtolower($search) . '%');
-        }
-
-        if ($lat && $lng && $useGeoSQL) {
-            $qb->andWhere(sprintf(
-                '(6371 * acos(cos(radians(%f)) * cos(radians(s.latitude)) * cos(radians(s.longitude) - radians(%f)) + sin(radians(%f)) * sin(radians(s.latitude)))) <= :rayon',
-                $lat, $lng, $lat
-            ))
-                ->andWhere('s.latitude IS NOT NULL AND s.longitude IS NOT NULL')
-                ->setParameter('rayon', $rayon);
-        } elseif ($ville) {
-            $conditions = ['LOWER(s.ville) LIKE :ville'];
-            $qb->setParameter('ville', mb_strtolower($ville));
-
-            if ($codePostal) {
-                $conditions[] = 's.codePostal = :codePostal';
-                $conditions[] = 's.codePostal LIKE :codePostalPattern';
-                $qb->setParameter('codePostal', $codePostal);
-                $qb->setParameter('codePostalPattern', $codePostal . '%');
-            }
-
-            $qb->andWhere('(' . implode(' OR ', $conditions) . ')');
-        }
-
-        if ($categorie) {
-            $qb->andWhere('s.categorie = :categorie')
-                ->setParameter('categorie', $categorie->toBinary());
-        }
-    }
-
-    private function haversine(float $lat1, float $lng1, float $lat2, float $lng2): float
-    {
-        $earthRadius = 6371;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLng = deg2rad($lng2 - $lng1);
-        $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-        return $earthRadius * $c;
-    }
-
-    /**
-     * Formate la distance pour l'affichage
-     */
-    private function formatDistance(float $distance): string
-    {
-        if ($distance < 1) {
-            return round($distance * 1000) . ' m';
-        }
-        return round($distance, 1) . ' km';
-    }
-
-    private function cleanString(?string $str): ?string
-    {
-        if ($str === null) {
-            return null;
-        }
-
-        $clean = mb_convert_encoding($str, 'UTF-8', 'UTF-8');
-        $clean = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $clean);
-
-        return trim($clean) ?: null;
     }
 
     #[Route('/{id}/evaluations', name: 'public_service_evaluations_create', methods: ['POST'])]
@@ -308,8 +190,8 @@ class ServicePublicController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
-
-        if (!isset($data['note']) || $data['note'] < 1 || $data['note'] > 5) {
+        $note = (int) ($data['note'] ?? 0);
+        if ($note < 1 || $note > 5) {
             return $this->json(['error' => 'Note invalide (1-5)'], 400);
         }
 
@@ -321,11 +203,9 @@ class ServicePublicController extends AbstractController
             ->setParameter('since', new \DateTimeImmutable('-5 minutes'));
 
         if ($user) {
-            $recentEvaluation->andWhere('e.user = :user')
-                ->setParameter('user', $user);
+            $recentEvaluation->andWhere('e.user = :user')->setParameter('user', $user);
         } else {
-            $recentEvaluation->andWhere('e.ip = :ip')
-                ->setParameter('ip', $ip);
+            $recentEvaluation->andWhere('e.ip = :ip')->setParameter('ip', $ip);
         }
 
         if ($recentEvaluation->getQuery()->getOneOrNullResult()) {
@@ -333,14 +213,12 @@ class ServicePublicController extends AbstractController
                 'error' => 'Vous avez déjà laissé un avis récemment. Veuillez patienter quelques minutes avant de réessayer.'
             ], 429);
         }
-        dump($service);
-
 
         $evaluation = new Evaluation();
         if ($user) {
             $evaluation->setUser($user);
         } else {
-            $nomAnonyme = trim($data['nom_anonyme'] ?? null);
+            $nomAnonyme = trim($data['nom_anonyme'] ?? '');
             $evaluation->setPseudo($nomAnonyme);
             $evaluation->setEstAnonyme(true);
             $evaluation->setUser(null);
@@ -349,9 +227,9 @@ class ServicePublicController extends AbstractController
         $evaluation->setEstVerifie(false);
         $evaluation->setStatut(StatutEvaluation::ACTIVE);
         $evaluation->setServicePublic($service);
-        $evaluation->setNote($data['note']);
+        $evaluation->setNote($note);
         $evaluation->setIp($ip);
-        $evaluation->setCommentaire($data['commentaire'] ?? '');
+        $evaluation->setCommentaire((string) ($data['commentaire'] ?? ''));
 
         $errors = $this->validator->validate($evaluation);
         if (count($errors) > 0) {
@@ -392,10 +270,7 @@ class ServicePublicController extends AbstractController
                 'moyenne' => $evaluationStats['moyenne'],
                 'total' => $evaluationStats['total'],
                 'repartition' => $evaluationStats['repartition'],
-                'liste' => array_map(
-                    fn($eval) => EvaluationJsonHelper::build($eval),
-                    $evaluationStats['evaluations']
-                )
+                'liste' => array_map(fn($eval) => EvaluationJsonHelper::build($eval), $evaluationStats['evaluations'])
             ]
         ]);
 
