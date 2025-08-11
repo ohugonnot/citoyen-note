@@ -20,6 +20,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Index(columns: ['ville', 'code_postal'], name: 'idx_localisation')]
 #[ORM\Index(columns: ['categorie_id', 'statut'], name: 'idx_categorie_statut')]
+#[ORM\Index(columns: ['statut'], name: 'idx_service_public_statut')]
+#[ORM\Index(columns: ['statut', 'nom'], name: 'idx_sp_statut_nom')]
+#[ORM\Index(columns: ['statut', 'categorie_id', 'nom'], name: 'idx_sp_statut_cat_nom')]
 class ServicePublic
 {
     use TimestampableTrait;

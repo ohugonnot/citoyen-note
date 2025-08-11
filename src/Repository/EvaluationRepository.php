@@ -183,4 +183,21 @@ class EvaluationRepository extends ServiceEntityRepository
         $this->getEntityManager()->remove($evaluation);
         $this->getEntityManager()->flush();
     }
+
+    public function getStatsForServices(array $serviceIds): array
+    {
+        if (!$serviceIds) return [];
+
+        return $this->createQueryBuilder('e')
+            ->select('IDENTITY(e.servicePublic) AS sid')
+            ->addSelect('AVG(e.note) AS moyenne')
+            ->addSelect('COUNT(e.id) AS total')
+            ->where('e.servicePublic IN (:ids)')
+            ->andWhere('e.statut = :statut')
+            ->andWhere('e.estVerifie = true')
+            ->setParameter('ids', $serviceIds)
+            ->setParameter('statut', \App\Enum\StatutEvaluation::ACTIVE)
+            ->groupBy('sid')
+            ->getQuery()->getArrayResult();
+    }
 }
