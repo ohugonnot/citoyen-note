@@ -24,7 +24,7 @@ Elle vise à renforcer la transparence, améliorer la qualité des services, et 
 
 Contient :
 - Architecture technique complète (frontend, backend, multi-tenant, accessibilité, QA).
-- Fonctionnalités MVP en place (#12 → #73).
+- Fonctionnalités MVP en place (#1 → #73).
 - Roadmap actualisée (MVP enrichi, V1+).
 - Liste des tickets prioritaires (GitHub Projects).
 ---
