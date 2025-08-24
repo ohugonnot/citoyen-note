@@ -44,8 +44,11 @@ Colonnes :
 ---
 ### 🧭 Contributeurs
 🧠 Product & Coordination : @Sanou64
+
 🛠️ Développement backend : @asfolken
+
 💡 Conception fonctionnelle, stratégie, RGPD : @Ninou
+
 ♿ Accessibilité & QA : équipe QA interne (suivi #71)
 ---
 ### 📮 Contact
