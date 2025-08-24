@@ -30,6 +30,7 @@ Contient :
 ---
 ### 📊 Suivi des tâches
 Le développement est suivi via GitHub Projects (Kanban) :
+
 🔗 Voir le tableau de bord (à adapter selon le lien réel)
 
 Colonnes :
