@@ -1,46 +1,51 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 APP_DIR="/var/www/cityavis-backend"
 FRONT_DIR="/var/www/cityavis-backend/cityavis-front"
-GIT_REPO="https://github.com/ohugonnot/citoyen-note.git"
 BRANCH="main"
 APACHE_SERVICE="apache2"
+BACKUP_DIR="/var/www/backups"
 
+echo "=== Déploiement CitoyenNote ==="
+echo "Date: $(date)"
 
-source .env
-echo "Pull dernières modifs"
+# Créer le dossier de backup si nécessaire
+mkdir -p "$BACKUP_DIR"
+
+echo "[1/8] Pull dernières modifications"
 git fetch origin
-git reset --hard origin/$BRANCH
+git reset --hard "origin/$BRANCH"
 
-echo "Install Composer (prod)"
-#composer install --no-dev --optimize-autoloader
-composer install --optimize-autoloader
+echo "[2/8] Install Composer (prod)"
+composer install --no-dev --optimize-autoloader --no-interaction
 
-echo "Clear cache prod"
-php bin/console cache:clear --env=prod
-php bin/console cache:warmup --env=prod
+echo "[3/8] Clear cache prod"
+php bin/console cache:clear --env=prod --no-interaction
+php bin/console cache:warmup --env=prod --no-interaction
 
-echo "Migrations doctrine"
-php bin/console doctrine:migrations:migrate --no-interaction
+echo "[4/8] Backup base de données"
+BACKUP_FILE="$BACKUP_DIR/db_backup_$(date +%Y%m%d_%H%M%S).sql"
+php bin/console doctrine:database:dump --env=prod > "$BACKUP_FILE" 2>/dev/null || {
+    echo "⚠ Backup via doctrine échoué, tentative pg_dump..."
+    pg_dump --no-password -f "$BACKUP_FILE" 2>/dev/null || echo "⚠ Backup échoué — migration sans backup"
+}
 
-echo "Fix permissions backend"
-sudo chown -R folken:www-data $APP_DIR
-#find $APP_DIR/var -type d -exec sudo chmod 775 {} \;
-#find $APP_DIR/var -type f -exec sudo chmod 664 {} \;
+echo "[5/8] Migrations Doctrine"
+php bin/console doctrine:migrations:migrate --no-interaction --env=prod
 
-echo "Build frontend"
+echo "[6/8] Build frontend"
 cd cityavis-front
-source .env
-npm install
+npm ci
 npm run build
-
-echo "Fix permissions frontend"
-sudo chown -R folken:www-data $FRONT_DIR
-
-echo "Redémarrage Apache"
-sudo systemctl reload $APACHE_SERVICE
 cd ..
+
+echo "[7/8] Fix permissions"
+sudo chown -R folken:www-data "$APP_DIR"
+sudo chown -R folken:www-data "$FRONT_DIR"
+
+echo "[8/8] Redémarrage Apache"
+sudo systemctl reload "$APACHE_SERVICE"
 
 echo "=== Déploiement terminé avec succès ==="
