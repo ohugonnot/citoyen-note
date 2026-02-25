@@ -129,6 +129,7 @@ class ServicePublicRepository extends ServiceEntityRepository
     ): array {
         $qb = $this->createQueryBuilder('sp')
             ->leftJoin('sp.categorie', 'categorie')
+            ->addSelect('categorie')
             ->andWhere('sp.statut = :statut')
             ->setParameter('statut', $filterDto->statut ?? StatutService::ACTIF);
 
@@ -227,10 +228,10 @@ class ServicePublicRepository extends ServiceEntityRepository
     private function mapSortField(string $sortField): string
     {
         return match ($sortField) {
-            'distance' => 'sp.nom', 
+            'distance' => 'sp.nom',
             'categorie.nom', 'categorie_nom' => 'categorie.nom',
-            'nom', 'ville', 'statut', 'createdAt', 'updatedAt' => 'sp.' . $sortField,
-            default => 'sp.' . $sortField
+            'nom', 'ville', 'statut', 'createdAt', 'updatedAt', 'codePostal' => 'sp.' . $sortField,
+            default => 'sp.nom'
         };
     }
 
@@ -251,7 +252,9 @@ class ServicePublicRepository extends ServiceEntityRepository
     public function findRecentServices(int $limit): array
     {
         return $this->createQueryBuilder('sp')
-            ->orderBy('sp.dateCreation', 'DESC')
+            ->leftJoin('sp.categorie', 'categorie')
+            ->addSelect('categorie')
+            ->orderBy('sp.createdAt', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();

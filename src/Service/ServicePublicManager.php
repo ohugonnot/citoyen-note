@@ -112,7 +112,7 @@ private function normalizeCategoryName(string $raw): string
  */
 private function hydraterCategorieOptimisee(ServicePublic $service, array $donnees): void
 {
-    $rawName = trim($donnees['type_service'] ?? '');
+    $rawName = trim($donnees['type_service'] ?? $donnees['categorie'] ?? '');
     if (!$rawName) {
         return;
     }
@@ -168,8 +168,8 @@ public function rechercherParProximite(float $lat, float $lng, float $rayon = 10
 {
     $services = $this->repository->findByProximite($lat, $lng, $rayon);
     usort($services, function($a, $b) use ($lat, $lng) {
-        $distanceA = $a->getDistanceDepuis($lat, $lng) ?? PHP_FLOAT_MAX;
-        $distanceB = $b->getDistanceDepuis($lat, $lng) ?? PHP_FLOAT_MAX;
+        $distanceA = $a->getDistanceFrom($lat, $lng) ?? PHP_FLOAT_MAX;
+        $distanceB = $b->getDistanceFrom($lat, $lng) ?? PHP_FLOAT_MAX;
         return $distanceA <=> $distanceB;
     });
     return $services;
@@ -191,7 +191,7 @@ private function hydraterDepuisDonnees(ServicePublic $service, array $donnees): 
         'ville' => 'setVille',
         'telephone' => 'setTelephone',
         'description' => 'setDescription',
-        'site_internet' => 'setSiteWeb',
+        'site_web' => 'setSiteWeb',
     ];
     foreach ($mappingChamps as $cle => $setter) {
         if (isset($donnees[$cle]) && !empty($donnees[$cle])) {
@@ -268,17 +268,22 @@ public function sauvegarderLot(array $servicesDonnees): array
 {
     $stats = ['succes' => 0, 'erreurs' => 0, 'erreurs_detail' => []];
     $this->entityManager->beginTransaction();
-    foreach ($servicesDonnees as $index => $donnees) {
-        try {
-            $this->sauvegarder($donnees, false);
-            $stats['succes']++;
-        } catch (\Exception $e) {
-            $stats['erreurs']++;
-            $stats['erreurs_detail'][] = ['index'=>$index,'service_id'=>$donnees['id_gouv']??'unknown','erreur'=>$e->getMessage()];
+    try {
+        foreach ($servicesDonnees as $index => $donnees) {
+            try {
+                $this->sauvegarder($donnees, false);
+                $stats['succes']++;
+            } catch (\Exception $e) {
+                $stats['erreurs']++;
+                $stats['erreurs_detail'][] = ['index'=>$index,'service_id'=>$donnees['id_gouv']??'unknown','erreur'=>$e->getMessage()];
+            }
         }
+        $this->entityManager->flush();
+        $this->entityManager->commit();
+    } catch (\Exception $e) {
+        $this->entityManager->rollback();
+        throw $e;
     }
-    $this->entityManager->flush();
-    $this->entityManager->commit();
     return $stats;
 }
 

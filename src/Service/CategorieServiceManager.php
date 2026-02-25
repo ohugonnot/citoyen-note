@@ -16,7 +16,7 @@ class CategorieServiceManager
 
     public function findAllActive(): array
     {
-        return $this->repository->findAll();
+        return $this->repository->findBy(['actif' => true]);
     }
 
     public function findById(string $id): ?CategorieService

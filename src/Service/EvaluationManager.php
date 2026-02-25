@@ -113,18 +113,18 @@ class EvaluationManager
 
     public function getPublicServiceStats(ServicePublic $service): array
     {
-        $qb = $this->repository->createQueryBuilder('e')
+        // Stats sur TOUTES les évaluations vérifiées
+        $statsQb = $this->repository->createQueryBuilder('e')
+            ->select('AVG(e.note) as moyenne, COUNT(e.id) as total')
             ->where('e.servicePublic = :service')
             ->andWhere('e.statut = :statut')
             ->andWhere('e.estVerifie = true')
             ->setParameter('service', $service->getId()->toBinary())
-            ->setParameter('statut', StatutEvaluation::ACTIVE)
-            ->orderBy('e.createdAt', 'DESC')
-            ->setMaxResults(20); 
+            ->setParameter('statut', StatutEvaluation::ACTIVE);
 
-        $evaluations = $qb->getQuery()->getResult();
+        $stats = $statsQb->getQuery()->getSingleResult();
 
-        if (empty($evaluations)) {
+        if ((int) $stats['total'] === 0) {
             return [
                 'moyenne' => 0,
                 'total' => 0,
@@ -133,12 +133,32 @@ class EvaluationManager
             ];
         }
 
-        $moyenne = array_sum(array_map(fn($e) => $e->getNote(), $evaluations)) / count($evaluations);
+        // Dernières évaluations pour affichage
+        $evaluations = $this->repository->createQueryBuilder('e')
+            ->where('e.servicePublic = :service')
+            ->andWhere('e.statut = :statut')
+            ->andWhere('e.estVerifie = true')
+            ->setParameter('service', $service->getId()->toBinary())
+            ->setParameter('statut', StatutEvaluation::ACTIVE)
+            ->orderBy('e.createdAt', 'DESC')
+            ->setMaxResults(20)
+            ->getQuery()
+            ->getResult();
+
+        // Répartition sur toutes les évaluations
+        $allEvaluations = $this->repository->createQueryBuilder('e')
+            ->where('e.servicePublic = :service')
+            ->andWhere('e.statut = :statut')
+            ->andWhere('e.estVerifie = true')
+            ->setParameter('service', $service->getId()->toBinary())
+            ->setParameter('statut', StatutEvaluation::ACTIVE)
+            ->getQuery()
+            ->getResult();
 
         return [
-            'moyenne' => round($moyenne, 1),
-            'total' => count($evaluations),
-            'repartition' => $this->calculateRepartition($evaluations),
+            'moyenne' => round((float) $stats['moyenne'], 1),
+            'total' => (int) $stats['total'],
+            'repartition' => $this->calculateRepartition($allEvaluations),
             'evaluations' => array_slice($evaluations, 0, 10)
         ];
     }
