@@ -46,7 +46,6 @@ class CategorieService
     }
     
     #[ORM\PrePersist]
-    #[ORM\PreUpdate]
     public function onPrePersist(): void
     {
         $this->generateSlug();

@@ -159,7 +159,6 @@ class ServicePublic
     }
     
     #[ORM\PrePersist]
-    #[ORM\PreUpdate]
     public function onPrePersist(): void
     {
         $this->generateSlug();
@@ -435,22 +434,10 @@ class ServicePublic
             return null;
         }
 
-        // Formule de Haversine pour calculer la distance
-        $earthRadius = 6371; // Rayon de la Terre en km
-        
-        $latFrom = deg2rad($latitude);
-        $lonFrom = deg2rad($longitude);
-        $latTo = deg2rad($this->latitude);
-        $lonTo = deg2rad($this->longitude);
-
-        $deltaLat = $latTo - $latFrom;
-        $deltaLon = $lonTo - $lonFrom;
-
-        $a = sin($deltaLat / 2) * sin($deltaLat / 2) +
-             cos($latFrom) * cos($latTo) * sin($deltaLon / 2) * sin($deltaLon / 2);
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return round($earthRadius * $c, 2);
+        return round(\App\Helper\GeoHelper::haversine(
+            $latitude, $longitude,
+            (float) $this->latitude, (float) $this->longitude
+        ), 2);
     }
 
     public function getDerniereEvaluation(): ?Evaluation
@@ -462,7 +449,7 @@ class ServicePublic
         }
 
         $evaluationsArray = $evaluationsActives->toArray();
-        usort($evaluationsArray, fn($a, $b) => $b->getDateCreation() <=> $a->getDateCreation());
+        usort($evaluationsArray, fn($a, $b) => $b->getCreatedAt() <=> $a->getCreatedAt());
         
         return $evaluationsArray[0];
     }
