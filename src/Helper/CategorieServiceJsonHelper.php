@@ -9,7 +9,7 @@ class CategorieServiceJsonHelper
     public static function build(CategorieService $categorie): array
     {
         return [
-            'id' => $categorie->getId(),
+            'id' => $categorie->getId()->toRfc4122(),
             'nom' => $categorie->getNom(),
             'description' => $categorie->getDescription(),
             'icone' => $categorie->getIcone(),

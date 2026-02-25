@@ -73,8 +73,8 @@ class ServicePublicJsonHelper
             'slug' => $service->getSlug(),
             'ville' => $service->getVille(),
             'code_postal' => $service->getCodePostal(),
-            'note_moyenne' => $service->getNoteMoyenne(),
-            'nombre_evaluations' => $service->getNombreEvaluations(),
+            'note_moyenne' => null,
+            'nombre_evaluations' => null,
             'accessibilite_pmr' => $service->isAccessibilitePmr(),
             'statut' => $service->getStatut()->value,
         ];

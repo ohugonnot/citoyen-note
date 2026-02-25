@@ -9,8 +9,7 @@ class EvaluationJsonHelper
     public static function build(Evaluation $evaluation): array
     {
         return [
-            'id' => $evaluation->getId(),
-            'uuid' => $evaluation->getUuid(),
+            'uuid' => $evaluation->getUuid()->toRfc4122(),
             'note' => $evaluation->getNote(),
             'commentaire' => $evaluation->getCommentaire(),
             'criteres_specifiques' => $evaluation->getCriteresSpecifiques(),
@@ -23,16 +22,12 @@ class EvaluationJsonHelper
             'updatedAt' => $evaluation->getUpdatedAt()?->format('Y-m-d H:i:s'),
             'pseudo' => $evaluation->getPseudo(),
             'service' => [
-                'id' => $evaluation->getServicePublic()->getId(),
+                'id' => $evaluation->getServicePublic()->getId()->toRfc4122(),
                 'nom' => $evaluation->getServicePublic()->getNom(),
             ],
             'user' => !$evaluation->getUser() ? null : [
                 'id' => $evaluation->getUser()?->getId(),
                 'pseudo' => $evaluation->getUser()?->getPseudo(),
-                'email' => $evaluation->getUser()?->getEmail(),
-                'nom' => $evaluation->getUser()?->getNom(),
-                'prenom' => $evaluation->getUser()?->getPrenom(),
-                'telephone' => $evaluation->getUser()?->getTelephone(),
             ],
         ];
     }
