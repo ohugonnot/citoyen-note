@@ -41,7 +41,6 @@ class UpdateServicePublicDto
     #[Assert\Choice(choices: ['actif', 'ferme', 'travaux'], message: 'Statut invalide')]
     public ?string $statut = null;
 
-    #[Assert\NotBlank(message: 'La catégorie est obligatoire')]
     public ?string $categorie = null;
 
     public function __construct(array $data = [])

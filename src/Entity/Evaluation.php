@@ -87,7 +87,7 @@ class Evaluation
 
     public function setIp(?string $ip): self
     {
-        $this->ip = $ip;
+        $this->ip = $ip !== null ? hash('sha256', $ip) : null;
         return $this;
     }
 

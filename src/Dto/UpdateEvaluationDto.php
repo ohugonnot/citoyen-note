@@ -30,11 +30,10 @@ class UpdateEvaluationDto
 
     public function __construct(array $data = [])
     {
-        $this->note = $data['note'] ?? 1;
+        $this->note = (int)($data['note'] ?? 1);
         $this->commentaire = $data['commentaire'] ?? null;
         $this->criteres_specifiques = $data['criteres_specifiques'] ?? null;
         $this->est_anonyme = $data['est_anonyme'] ?? false;
-        $this->est_verifie = $data['est_verifie'] ?? false;
         $this->service_id = $data['service_id'] ?? '';
         $this->user_id = $data['user_id'] ?? null;
         $this->pseudo_anonyme = $data['pseudo_anonyme'] ?? null;

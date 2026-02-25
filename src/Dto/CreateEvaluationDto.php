@@ -33,7 +33,6 @@ class CreateEvaluationDto
         $this->commentaire = $data['commentaire'] ?? null;
         $this->criteres_specifiques = $data['criteres_specifiques'] ?? null;
         $this->est_anonyme = (bool)($data['est_anonyme'] ?? false);
-        $this->est_verifie = (bool)($data['est_verifie'] ?? false);
         $this->service_id = $data['service_id'] ?? '';
         $this->user_id = $data['user_id'] ?? null;
         $this->pseudo_anonyme = $data['pseudo_anonyme'] ?? null;
