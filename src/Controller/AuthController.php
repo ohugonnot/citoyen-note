@@ -19,6 +19,7 @@ use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
 use Symfony\Component\Security\Http\Event\LoginFailureEvent;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 
 class AuthController extends AbstractController
@@ -28,9 +29,16 @@ class AuthController extends AbstractController
         Request $request,
         EntityManagerInterface $em,
         UserPasswordHasherInterface $passwordHasher,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        RateLimiterFactory $registerLimiter
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
+
+        // Rate limiting
+        $limiter = $registerLimiter->create($request->getClientIp());
+        if (false === $limiter->consume(1)->isAccepted()) {
+            return $this->json(['error' => 'Trop de tentatives. Réessayez plus tard.'], 429);
+        }
 
         if (!isset($data['email'], $data['password'])) {
             return $this->json(['error' => 'Email et mot de passe requis'], 400);
@@ -101,7 +109,7 @@ class AuthController extends AbstractController
 
             $logger->info('User registered successfully', ['email' => $data['email']]);
 
-            return $this->json(['message' => 'Utilisateur enregistré avec succès']);
+            return $this->json(['message' => 'Utilisateur enregistré avec succès'], 201);
         } catch (\Exception $e) {
             $logger->error('Registration failed', [
                 'email' => $data['email'], 
@@ -118,12 +126,19 @@ class AuthController extends AbstractController
         UserPasswordHasherInterface $passwordHasher,
         JWTTokenManagerInterface $jwtManager,
         EventDispatcherInterface $eventDispatcher,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        RateLimiterFactory $loginLimiter
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
 
         if (!isset($data['email'], $data['password'])) {
             return $this->json(['error' => 'email et password requis'], 400);
+        }
+
+        // Rate limiting
+        $limiter = $loginLimiter->create($request->getClientIp());
+        if (false === $limiter->consume(1)->isAccepted()) {
+            return $this->json(['error' => 'Trop de tentatives. Réessayez plus tard.'], 429);
         }
 
         // Trouver l'utilisateur
@@ -138,6 +153,17 @@ class AuthController extends AbstractController
         if (!$passwordHasher->isPasswordValid($user, $data['password'])) {
             $logger->warning('Login attempt with invalid password', ['email' => $data['email']]);
             return $this->json(['error' => 'Identifiants invalides'], 401);
+        }
+
+        // Vérifier le statut du compte
+        if ($user->getStatut() !== StatutUser::ACTIF) {
+            $logger->warning('Login attempt with inactive account', ['email' => $data['email'], 'statut' => $user->getStatut()->value]);
+            return $this->json(['error' => 'Compte désactivé ou suspendu'], 403);
+        }
+
+        if (!$user->isVerified()) {
+            $logger->warning('Login attempt with unverified account', ['email' => $data['email']]);
+            return $this->json(['error' => 'Compte non vérifié. Veuillez vérifier votre email.'], 403);
         }
 
         try {
@@ -225,9 +251,23 @@ class AuthController extends AbstractController
         return $this->json(UserJsonHelper::build($user));
     }
 
-    #[Route('/api/logout', name: 'api_logout', methods: ['POST','GET'])]
-    public function logout(): JsonResponse
-    {
+    #[Route('/api/logout', name: 'api_logout', methods: ['POST'])]
+    public function logout(
+        Request $request,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        $data = json_decode($request->getContent(), true);
+        $refreshToken = $data['refresh_token'] ?? null;
+
+        if ($refreshToken) {
+            $token = $em->getRepository(\App\Entity\RefreshToken::class)
+                ->findOneBy(['refreshToken' => $refreshToken]);
+            if ($token) {
+                $em->remove($token);
+                $em->flush();
+            }
+        }
+
         return $this->json(['message' => 'Déconnexion réussie']);
     }
 }
