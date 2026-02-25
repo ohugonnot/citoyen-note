@@ -2,12 +2,11 @@
 
 namespace App\Controller\Admin;
 
+use App\Controller\Admin\Trait\AdminControllerTrait;
 use App\Entity\ServicePublic;
 use App\Helper\ServicePublicJsonHelper;
 use App\Repository\ServicePublicRepository;
 use App\Dto\{ServicePublicFilterDto, CreateServicePublicDto, UpdateServicePublicDto};
-use App\Helper\EvaluationJsonHelper;
-use App\Service\EvaluationManager;
 use App\Service\ServicePublicManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\{JsonResponse, Request};
@@ -20,7 +19,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 #[Route('/api/admin/services-publics', name: 'admin_service_public_')]
 class ServicePublicController extends AbstractController
 {
-    private const REQUIRED_ROLE = 'ROLE_USER';
+    use AdminControllerTrait;
+    private const REQUIRED_ROLE = 'ROLE_ADMIN';
     private const MAX_BULK_LIMIT = 50;
     private const MAX_RECENT_LIMIT = 50;
 
@@ -29,7 +29,6 @@ class ServicePublicController extends AbstractController
         private readonly ServicePublicRepository $servicePublicRepository,
         private readonly ValidatorInterface $validator,
         private readonly LoggerInterface $logger,
-        private readonly EvaluationManager $evaluationManager
     ) {}
 
     #[Route('', name: 'index', methods: ['GET'])]
@@ -43,7 +42,7 @@ class ServicePublicController extends AbstractController
             
             return $this->json([
                 'data' => array_map([ServicePublicJsonHelper::class, 'build'], $result['services']),
-                'pagination' => $this->buildPaginationData($result, $filterDto),
+                'pagination' => $this->buildPaginationData($result, $filterDto->page, $filterDto->limit),
                 'filters' => $filterDto->toArray()
             ]);
 
@@ -126,7 +125,7 @@ class ServicePublicController extends AbstractController
             $service = $this->findServiceOr404($id);
             $this->servicePublicService->supprimer($service);
 
-            return $this->json(['message' => 'Service public supprimé avec succès']);
+            return $this->json(null, 204);
 
         } catch (\Exception $e) {
             return $this->handleError($e, 'Erreur lors de la suppression du service public', ['service_id' => $id]);
@@ -250,20 +249,6 @@ class ServicePublicController extends AbstractController
         );
     }
 
-    private function buildPaginationData(array $result, ServicePublicFilterDto $filterDto): array
-    {
-        $totalPages = ceil($result['total'] / $filterDto->limit);
-        
-        return [
-            'total' => $result['total'],
-            'page' => $filterDto->page,
-            'limit' => $filterDto->limit,
-            'totalPages' => $totalPages,
-            'hasNext' => $filterDto->page < $totalPages,
-            'hasPrev' => $filterDto->page > 1
-        ];
-    }
-
     private function findServiceOr404(string $id): ServicePublic
     {
         $service = $this->servicePublicRepository->find($id);
@@ -271,15 +256,6 @@ class ServicePublicController extends AbstractController
             throw $this->createNotFoundException('Service public introuvable');
         }
         return $service;
-    }
-
-    private function getJsonData(Request $request): array
-    {
-        $data = json_decode($request->getContent(), true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \InvalidArgumentException('JSON invalide');
-        }
-        return $data ?? [];
     }
 
     private function isValidUuidArray(?array $ids): bool
@@ -299,34 +275,4 @@ class ServicePublicController extends AbstractController
         return true;
     }
 
-    private function handleValidationErrors(ValidationFailedException $exception): JsonResponse
-    {
-        $errors = [];
-        foreach ($exception->getViolations() as $violation) {
-            $errors[$violation->getPropertyPath()][] = $violation->getMessage();
-        }
-        
-        $lines = [];
-        foreach ($errors as $field => $messages) {
-            foreach ($messages as $message) {
-                $lines[] = "$field: $message";
-            }
-        }
-        
-        return $this->json([
-            'violations' => $errors,
-            'error' => implode("\n", $lines), 
-        ], 422);
-    }
-
-    private function handleError(\Exception $e, string $message, array $context = []): JsonResponse
-    {
-        $this->logger->error($message, array_merge($context, ['error' => $e->getMessage()]));
-
-        if ($e instanceof \InvalidArgumentException) {
-            return $this->json(['error' => $e->getMessage()], 422);
-        }
-
-        return $this->json(['error' => $message], 500);
-    }
 }

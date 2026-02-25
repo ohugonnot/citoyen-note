@@ -2,6 +2,7 @@
 
 namespace App\Controller\Admin;
 
+use App\Controller\Admin\Trait\AdminControllerTrait;
 use App\Entity\User;
 use App\Helper\UserJsonHelper;
 use App\Repository\UserRepository;
@@ -17,7 +18,8 @@ use Psr\Log\LoggerInterface;
 #[Route('/api/admin/users', name: 'admin_user_')]
 class UserController extends AbstractController
 {
-    private const REQUIRED_ROLE = 'ROLE_USER'; // ✅ Corrigé ROLE_USER -> ROLE_ADMIN
+    use AdminControllerTrait;
+    private const REQUIRED_ROLE = 'ROLE_ADMIN';
     private const MAX_BULK_LIMIT = 50;
     private const MAX_RECENT_LIMIT = 50;
 
@@ -38,7 +40,7 @@ class UserController extends AbstractController
             
             return $this->json([
                 'data' => array_map([UserJsonHelper::class, 'build'], $result['users']),
-                'pagination' => $this->buildPaginationData($result, $filterDto),
+                'pagination' => $this->buildPaginationData($result, $filterDto->page, $filterDto->limit),
                 'filters' => $filterDto->toArray()
             ]);
 
@@ -135,7 +137,7 @@ class UserController extends AbstractController
 
             $this->userManager->deleteUser($user);
 
-            return $this->json(['message' => 'Utilisateur supprimé avec succès']);
+            return $this->json(null, 204);
 
         } catch (\Exception $e) {
             return $this->handleError($e, 'Erreur lors de la suppression de l\'utilisateur', ['user_id' => $id]);
@@ -201,20 +203,6 @@ class UserController extends AbstractController
         }
     }
 
-    private function buildPaginationData(array $result, UserFilterDto $filterDto): array
-    {
-        $totalPages = ceil($result['total'] / $filterDto->limit);
-        
-        return [
-            'total' => $result['total'],
-            'page' => $filterDto->page,
-            'limit' => $filterDto->limit,
-            'totalPages' => $totalPages,
-            'hasNext' => $filterDto->page < $totalPages,
-            'hasPrev' => $filterDto->page > 1
-        ];
-    }
-
     private function findUserOr404(int $id): User
     {
         $user = $this->userRepository->find($id);
@@ -222,15 +210,6 @@ class UserController extends AbstractController
             throw $this->createNotFoundException('Utilisateur introuvable');
         }
         return $user;
-    }
-
-    private function getJsonData(Request $request): array
-    {
-        $data = json_decode($request->getContent(), true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \InvalidArgumentException('JSON invalide');
-        }
-        return $data ?? [];
     }
 
     private function isValidIdArray(?array $ids): bool
@@ -245,33 +224,4 @@ class UserController extends AbstractController
         return $user === $this->getUser();
     }
 
-    private function handleValidationErrors(ValidationFailedException $exception): JsonResponse
-    {
-        $errors = [];
-        foreach ($exception->getViolations() as $violation) {
-            $errors[$violation->getPropertyPath()][] = $violation->getMessage();
-        }
-        $lines = [];
-        foreach ($errors as $field => $messages) {
-            foreach ($messages as $message) {
-                $lines[] = "$field: $message";
-            }
-        }
-        $error = join("\n", $lines);
-        return $this->json([
-            'violations' => $errors,
-            'error' => $error, 
-        ], 422);
-    }
-
-    private function handleError(\Exception $e, string $message, array $context = []): JsonResponse
-    {
-        $this->logger->error($message, array_merge($context, ['error' => $e->getMessage()]));
-
-        if ($e instanceof \InvalidArgumentException) {
-            return $this->json(['error' => $e->getMessage()], 422);
-        }
-
-        return $this->json(['error' => $message], 500);
-    }
 }

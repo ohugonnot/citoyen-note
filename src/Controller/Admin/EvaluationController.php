@@ -2,6 +2,7 @@
 
 namespace App\Controller\Admin;
 
+use App\Controller\Admin\Trait\AdminControllerTrait;
 use App\Dto\CreateEvaluationDto;
 use App\Dto\EvaluationFilterDto;
 use App\Dto\UpdateEvaluationDto;
@@ -21,7 +22,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 #[Route('/api/admin/evaluations', name: 'admin_evaluations_')]
 class EvaluationController extends AbstractController
 {
-    private const REQUIRED_ROLE = 'ROLE_USER';
+    use AdminControllerTrait;
+    private const REQUIRED_ROLE = 'ROLE_ADMIN';
 
     public function __construct(
         private readonly EvaluationRepository $repository,
@@ -41,26 +43,12 @@ class EvaluationController extends AbstractController
             $result = $this->repository->findPaginated($filterDto);
             return $this->json([
                 'data' => array_map([EvaluationJsonHelper::class, 'build'], $result['items']),
-                'pagination' => $this->buildPaginationData($result, $filterDto),
+                'pagination' => $this->buildPaginationData($result, $filterDto->page, $filterDto->limit),
                 'filters' => $filterDto->toArray(),
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Erreur lors de la récupération des évaluations');
         }
-    }
-
-    private function buildPaginationData(array $result, EvaluationFilterDto $filterDto): array
-    {
-        $totalPages = (int) ceil($result['total'] / $filterDto->limit);
-
-        return [
-            'total' => $result['total'],
-            'page' => $filterDto->page,
-            'limit' => $filterDto->limit,
-            'totalPages' => $totalPages,
-            'hasNext' => $filterDto->page < $totalPages,
-            'hasPrev' => $filterDto->page > 1,
-        ];
     }
 
     public static function createEvaluationFilterDtoFromRequest(Request $request): EvaluationFilterDto
@@ -84,6 +72,8 @@ class EvaluationController extends AbstractController
     #[Route('/{uuid}', name: 'show', methods: ['GET'])]
     public function show(string $uuid): JsonResponse
     {
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
+
         $evaluation = $this->repository->findOneBy(['uuid' => Uuid::fromString($uuid)]);
         if (!$evaluation) {
             return $this->json(['error' => 'Évaluation introuvable'], 404);
@@ -95,7 +85,9 @@ class EvaluationController extends AbstractController
     #[Route('', name: 'create', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
-        $dto = new CreateEvaluationDto(json_decode($request->getContent(), true));
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
+
+        $dto = new CreateEvaluationDto($this->getJsonData($request));
         $errors = $this->validator->validate($dto);
         if (count($errors) > 0) {
             return $this->json(['errors' => (string) $errors], 400);
@@ -108,17 +100,14 @@ class EvaluationController extends AbstractController
     #[Route('/{uuid}', name: 'update', methods: ['PUT'])]
     public function update(string $uuid, Request $request): JsonResponse
     {
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
+
         $evaluation = $this->repository->findOneBy(['uuid' => Uuid::fromString($uuid)]);
         if (!$evaluation) {
             return $this->json(['error' => 'Évaluation introuvable'], 404);
         }
 
-        $user = $this->security->getUser();
-        if (!$user || (!$this->security->isGranted(self::REQUIRED_ROLE) && $evaluation->getUser()?->getUserIdentifier() !== $user->getUserIdentifier())) {
-            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
-        }
-
-        $dto = new UpdateEvaluationDto(json_decode($request->getContent(), true));
+        $dto = new UpdateEvaluationDto($this->getJsonData($request));
         $errors = $this->validator->validate($dto);
         if (count($errors) > 0) {
             return $this->json(['errors' => (string) $errors], 400);
@@ -131,15 +120,13 @@ class EvaluationController extends AbstractController
     #[Route('/bulk', name: 'bulk_delete', methods: ['DELETE'])]
     public function bulkDelete(Request $request): JsonResponse
     {
-        $data = json_decode($request->getContent(), true);
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
+
+        $data = $this->getJsonData($request);
         $uuids = $data['ids'] ?? [];
 
         if (!is_array($uuids) || empty($uuids)) {
             return $this->json(['error' => 'Liste d\'UUIDs vide.'], 400);
-        }
-
-        if (!$this->security->isGranted(self::REQUIRED_ROLE)) {
-            return $this->json(['error' => 'Seul un administrateur peut effectuer une suppression multiple.'], Response::HTTP_FORBIDDEN);
         }
 
         $this->manager->bulkDelete($uuids);
@@ -149,16 +136,14 @@ class EvaluationController extends AbstractController
     #[Route('/bulk-validate', name: 'bulk_validate', methods: ['POST'])]
     public function bulkValidate(Request $request): JsonResponse
     {
-        $data = json_decode($request->getContent(), true);
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
+
+        $data = $this->getJsonData($request);
         $uuids = $data['ids'] ?? [];
         $estVerifie = $data['est_verifie'] ?? true; // Par défaut, on valide
 
         if (!is_array($uuids) || empty($uuids)) {
             return $this->json(['error' => 'Liste d\'UUIDs vide.'], 400);
-        }
-
-        if (!$this->security->isGranted(self::REQUIRED_ROLE)) {
-            return $this->json(['error' => 'Seul un administrateur peut effectuer une validation multiple.'], Response::HTTP_FORBIDDEN);
         }
 
         try {
@@ -181,16 +166,14 @@ class EvaluationController extends AbstractController
     #[Route('/{uuid}/toggle-validation', name: 'toggle_validation', methods: ['PATCH'])]
     public function toggleValidation(string $uuid, Request $request): JsonResponse
     {
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
+
         $evaluation = $this->repository->findOneBy(['uuid' => Uuid::fromString($uuid)]);
         if (!$evaluation) {
             return $this->json(['error' => 'Évaluation introuvable'], 404);
         }
 
-        if (!$this->security->isGranted(self::REQUIRED_ROLE)) {
-            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
-        }
-
-        $data = json_decode($request->getContent(), true);
+        $data = $this->getJsonData($request);
         $newStatus = $data['est_verifie'] ?? !$evaluation->isEstVerifie();
 
         try {
@@ -212,28 +195,15 @@ class EvaluationController extends AbstractController
     #[Route('/{uuid}', name: 'delete', methods: ['DELETE'])]
     public function delete(string $uuid): JsonResponse
     {
+        $this->denyAccessUnlessGranted(self::REQUIRED_ROLE);
+
         $evaluation = $this->repository->findOneBy(['uuid' => Uuid::fromString($uuid)]);
         if (!$evaluation) {
             return $this->json(['error' => 'Évaluation introuvable'], 404);
-        }
-
-        $user = $this->security->getUser();
-        if (!$user || (!$this->security->isGranted(self::REQUIRED_ROLE) && $evaluation->getUser()?->getUserIdentifier() !== $user->getUserIdentifier())) {
-            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
         }
 
         $this->manager->delete($evaluation);
         return $this->json(null, 204);
     }
 
-    private function handleError(\Exception $e, string $message, array $context = []): JsonResponse
-    {
-        $this->logger->error($message, array_merge($context, ['error' => $e->getMessage()]));
-
-        if ($e instanceof \InvalidArgumentException) {
-            return $this->json(['error' => $e->getMessage()], 422);
-        }
-
-        return $this->json(['error' => $message], 500);
-    }
 }
