@@ -204,32 +204,26 @@ class UserManager
 
     private function applyCreateUserData(User $user, CreateUserDto $dto): void
     {
-        // Données personnelles
-        $this->setIfNotNull($user, [
-            'setNom' => $dto->nom,
-            'setPrenom' => $dto->prenom,
-            'setPseudo' => $dto->pseudo,
-            'setTelephone' => $dto->telephone,
-            'setCodePostal' => $dto->codePostal,
-            'setVille' => $dto->ville
-        ]);
-        
-        // Date de naissance
+        if ($dto->nom !== null) $user->setNom($dto->nom);
+        if ($dto->prenom !== null) $user->setPrenom($dto->prenom);
+        if ($dto->pseudo !== null) $user->setPseudo($dto->pseudo);
+        if ($dto->telephone !== null) $user->setTelephone($dto->telephone);
+        if ($dto->codePostal !== null) $user->setCodePostal($dto->codePostal);
+        if ($dto->ville !== null) $user->setVille($dto->ville);
+
         if ($dto->dateNaissance) {
             $user->setDateNaissance($this->parseDate($dto->dateNaissance));
         }
 
-        // Configuration système
         $user->setRoles($this->validateAndNormalizeRoles($dto->roles));
-        
+
         if ($dto->scoreFiabilite !== null) {
             $user->setScoreFiabilite($dto->scoreFiabilite);
         }
 
-        // Statuts booléens
         $user->setIsVerified($dto->isVerified);
         $user->setAccepteNewsletters($dto->accepteNewsletters);
-        
+
         if ($dto->isVerified) {
             $user->setVerifiedAt(new \DateTime());
         }
@@ -237,35 +231,28 @@ class UserManager
 
     private function applyUpdateUserData(User $user, UpdateUserDto $dto): void
     {
-        // Données personnelles (NULL = pas de changement)
-        $this->setIfNotNull($user, [
-            'setEmail' => $dto->email,
-            'setNom' => $dto->nom,
-            'setPrenom' => $dto->prenom,
-            'setPseudo' => $dto->pseudo,
-            'setTelephone' => $dto->telephone,
-            'setCodePostal' => $dto->codePostal,
-            'setVille' => $dto->ville
-        ], true); // allowNull pour les updates
-        
-        // Date de naissance
+        if ($dto->email !== null) $user->setEmail($dto->email);
+        if ($dto->nom !== null) $user->setNom($dto->nom);
+        if ($dto->prenom !== null) $user->setPrenom($dto->prenom);
+        if ($dto->pseudo !== null) $user->setPseudo($dto->pseudo);
+        if ($dto->telephone !== null) $user->setTelephone($dto->telephone);
+        if ($dto->codePostal !== null) $user->setCodePostal($dto->codePostal);
+        if ($dto->ville !== null) $user->setVille($dto->ville);
+
         if ($dto->dateNaissance !== null) {
             $user->setDateNaissance(
                 $dto->dateNaissance ? $this->parseDate($dto->dateNaissance) : null
             );
         }
 
-        // Rôles
         if ($dto->roles !== null) {
             $user->setRoles($this->validateAndNormalizeRoles($dto->roles));
         }
 
-        // Score de fiabilité
         if ($dto->scoreFiabilite !== null) {
             $user->setScoreFiabilite($dto->scoreFiabilite);
         }
 
-        // Vérification
         if ($dto->isVerified !== null) {
             $user->setIsVerified($dto->isVerified);
             if ($dto->isVerified && !$user->getVerifiedAt()) {
@@ -273,25 +260,14 @@ class UserManager
             }
         }
 
-        // Newsletters
         if ($dto->accepteNewsletters !== null) {
             $user->setAccepteNewsletters($dto->accepteNewsletters);
         }
 
-        // Statut
         if ($dto->statut) {
             $statut = StatutUser::tryFrom($dto->statut);
             if ($statut) {
                 $user->setStatut($statut);
-            }
-        }
-    }
-
-    private function setIfNotNull(User $user, array $setters, bool $allowNull = false): void
-    {
-        foreach ($setters as $method => $value) {
-            if ($value !== null || $allowNull) {
-                $user->$method($value);
             }
         }
     }
