@@ -3,9 +3,8 @@
 namespace App\Controller;
 
 use App\Entity\User;
-use App\Enum\Statut;
 use App\Enum\StatutUser;
-use App\Helper\UserJsonHelper;
+use App\Validator\StrongPassword;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -13,14 +12,11 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
-use Symfony\Component\Security\Http\Event\LoginFailureEvent;
-use Symfony\Component\Security\Core\Exception\AuthenticationException;
-use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Component\Validator\Constraints as Assert;
 
 class AuthController extends AbstractController
 {
@@ -30,7 +26,8 @@ class AuthController extends AbstractController
         EntityManagerInterface $em,
         UserPasswordHasherInterface $passwordHasher,
         LoggerInterface $logger,
-        RateLimiterFactory $registerLimiter
+        RateLimiterFactory $registerLimiter,
+        ValidatorInterface $validator
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
 
@@ -45,44 +42,16 @@ class AuthController extends AbstractController
         }
 
         // Validation de l'email
-        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+        $emailViolations = $validator->validate($data['email'], [new Assert\Email()]);
+        if (count($emailViolations) > 0) {
             return $this->json(['error' => 'Format d\'email invalide'], 400);
         }
 
-        // Validation du mot de passe
+        // Validation du mot de passe via le validator dédié
         $password = $data['password'];
-        $passwordErrors = [];
-
-        if (strlen($password) < 8) {
-            $passwordErrors[] = 'au moins 8 caractères';
-        }
-        if (!preg_match('/[A-Z]/', $password)) {
-            $passwordErrors[] = 'au moins une majuscule';
-        }
-        if (!preg_match('/[a-z]/', $password)) {
-            $passwordErrors[] = 'au moins une minuscule';
-        }
-        if (!preg_match('/\d/', $password)) {
-            $passwordErrors[] = 'au moins un chiffre';
-        }
-        if (!preg_match('/[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]/', $password)) {
-            $passwordErrors[] = 'au moins un caractère spécial';
-        }
-
-        // Vérification des mots de passe faibles
-        $weakPasswords = [
-            '12345678', 'password', 'Password1!', 'azerty123', 'qwerty123',
-            'motdepasse', '00000000', '11111111', '123456789', 'password123'
-        ];
-        
-        if (in_array(strtolower($password), array_map('strtolower', $weakPasswords))) {
-            $passwordErrors[] = 'mot de passe trop courant';
-        }
-
-        if (!empty($passwordErrors)) {
-            return $this->json([
-                'error' => 'Mot de passe invalide : ' . implode(', ', $passwordErrors)
-            ], 400);
+        $passwordViolations = $validator->validate($password, [new StrongPassword()]);
+        if (count($passwordViolations) > 0) {
+            return $this->json(['error' => $passwordViolations[0]->getMessage()], 400);
         }
 
         // Vérifier si l'utilisateur existe déjà
@@ -190,65 +159,6 @@ class AuthController extends AbstractController
             $logger->error('JWT token generation failed', ['email' => $user->getEmail(), 'error' => $e->getMessage()]);
             return $this->json(['error' => 'Erreur lors de la génération du token'], 500);
         }
-    }
-
-    #[Route('/api/users/{id}', name: 'api_update_user', methods: ['PUT'])]
-    public function updateUser(
-        int $id,
-        Request $request,
-        EntityManagerInterface $em,
-        #[CurrentUser] ?User $currentUser
-    ): JsonResponse {
-        if (!$currentUser) {
-            return $this->json(['error' => 'Non authentifié'], 401);
-        }
-
-        // On ne permet que la modification de son propre profil
-        if ($currentUser->getId() !== $id) {
-            return $this->json(['error' => 'Accès non autorisé'], 403);
-        }
-
-        $data = json_decode($request->getContent(), true);
-
-        // On autorise uniquement certaines propriétés
-        $allowedFields = ['nom', 'prenom', 'telephone', 'dateNaissance','pseudo', 'codePostal', 'ville'];
-        foreach ($allowedFields as $field) {
-            if (!array_key_exists($field, $data)) {
-                continue;
-            }
-
-            $value = $data[$field];
-
-            // Convertir la date de naissance si nécessaire
-            if ($field === 'dateNaissance' && is_string($value)) {
-                try {
-                    $value = new \DateTime($value);
-                } catch (\Exception $e) {
-                    return $this->json(['error' => 'Format de date invalide pour dateNaissance'], 400);
-                }
-            }
-
-            $setter = 'set' . ucfirst($field);
-            if (method_exists($currentUser, $setter)) {
-                $currentUser->$setter($value);
-            }
-        }
-
-        $em->persist($currentUser);
-        $em->flush();
-
-        return $this->json(UserJsonHelper::build($currentUser));
-    }
-
-
-    #[Route('/api/me', name: 'api_me', methods: ['GET'])]
-    public function me(#[CurrentUser] ?User $user): JsonResponse
-    {
-        if (!$user) {
-            return $this->json(['error' => 'Non authentifié'], 401);
-        }
-
-        return $this->json(UserJsonHelper::build($user));
     }
 
     #[Route('/api/logout', name: 'api_logout', methods: ['POST'])]
