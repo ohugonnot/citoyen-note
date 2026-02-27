@@ -44,3 +44,8 @@ yarn-error.log*
 cityavis-front/public/images/
 cityavis-front/.env
 cityavis-front/.env.production
+
+# Fichiers sensibles / logs
+.env.dev
+.env.test
+*.log
