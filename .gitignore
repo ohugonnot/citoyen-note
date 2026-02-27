@@ -49,3 +49,8 @@ cityavis-front/.env.production
 .env.dev
 .env.test
 *.log
+
+# Données et documents internes
+src/Csv/
+*.odt
+*.zip
